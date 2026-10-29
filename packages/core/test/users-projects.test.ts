@@ -35,6 +35,21 @@ describe("users", () => {
   });
 });
 
+describe("signInWithGithub", () => {
+  it("creates a human on first sign-in and returns the same one afterwards", async () => {
+    const first = await core().users.signInWithGithub({ githubId: 4242, name: "Octo Cat" });
+    expect(first).toMatchObject({ kind: "human", name: "Octo Cat", githubId: 4242 });
+    expect(await core().users.signInWithGithub({ githubId: 4242, name: "Renamed" })).toEqual(first);
+  });
+
+  it("creates one user when the first sign-ins race", async () => {
+    const users = await Promise.all(
+      Array.from({ length: 5 }, () => core().users.signInWithGithub({ githubId: 777, name: "Racer" })),
+    );
+    expect(new Set(users.map((u) => u.id)).size).toBe(1);
+  });
+});
+
 describe("projects", () => {
   it("creates, lists and logs activity", async () => {
     const { alice } = await seed(core());

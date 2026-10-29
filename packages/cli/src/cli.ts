@@ -12,6 +12,7 @@ import {
   formatProjectLine,
   formatTicket,
   formatTicketLine,
+  formatTokenLine,
   formatUser,
 } from "./format";
 
@@ -94,6 +95,32 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
     .action(async (name: string) => {
       const created = await api().createAgent(name);
       print(created, () => `Created agent ${created.user.name} (${created.user.id})\nToken (shown once): ${created.token}`);
+    });
+
+  const token = program.command("token").description("Manage API tokens (humans only)");
+  token
+    .command("list")
+    .description("List tokens of yourself or --user (ids only; the secrets are never shown)")
+    .option("--user <userId>", "an agent's user id")
+    .action(async (o: { user?: string }) => {
+      const tokens = await api().listTokens(o.user);
+      print(tokens, () => (tokens.length > 0 ? tokens.map(formatTokenLine).join("\n") : "No tokens"));
+    });
+  token
+    .command("create")
+    .description("Create another token for yourself or --user. The token is shown once.")
+    .option("--user <userId>", "an agent's user id")
+    .action(async (o: { user?: string }) => {
+      const created = await api().createToken(o.user);
+      print({ token: created }, () => `Token (shown once): ${created}`);
+    });
+  token
+    .command("revoke")
+    .description("Revoke a token by its id (see `token list`). It stops working at once.")
+    .argument("<id>")
+    .action(async (id: string) => {
+      await api().revokeToken(id);
+      print({ revoked: id }, () => `Revoked ${id}`);
     });
 
   const project = program.command("project").description("Manage projects");

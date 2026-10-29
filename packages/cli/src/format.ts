@@ -1,4 +1,4 @@
-import type { ActivityEntry, Project, Ticket, User } from "@sumi/contract";
+import type { ActivityEntry, Project, Ticket, TokenInfo, User } from "@sumi/contract";
 
 export function formatTicketLine(t: Ticket): string {
   return `${t.key}  ${t.status.padEnd(11)}  ${(t.priority ?? "-").padEnd(6)}  ${t.title}`;
@@ -20,6 +20,8 @@ export function formatTicket(t: Ticket): string {
 }
 
 export const formatProjectLine = (p: Project): string => `${p.key}  ${p.name}`;
+
+export const formatTokenLine = (t: TokenInfo): string => `${t.id}  ${t.userId}  ${t.createdAt.toISOString()}`;
 
 export const formatUser = (u: User): string => `${u.name} (${u.kind})  ${u.id}`;
 

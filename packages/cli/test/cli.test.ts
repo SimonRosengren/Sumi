@@ -3,6 +3,7 @@ import {
   AgentCreatedSchema,
   ProjectSchema,
   TicketSchema,
+  TokenInfoSchema,
   UserSchema,
 } from "@sumi/contract";
 import { describe, expect, it, inject } from "vitest";
@@ -84,6 +85,32 @@ describe("whoami and agents", () => {
     const denied = await sumi(["agent", "create", "Sneaky"], { SUMI_TOKEN: token });
     expect(denied.code).toBe(1);
     expect(denied.err).toContain("Only humans");
+  });
+});
+
+describe("tokens", () => {
+  it("rotates an agent's token: create, list, revoke", async () => {
+    const { user, token: first } = await sumiJson(AgentCreatedSchema, ["agent", "create", "Rotating"]);
+    const { token: second } = await sumiJson(z.object({ token: z.string() }), ["token", "create", "--user", user.id]);
+    expect((await sumi(["token", "create", "--user", user.id])).out).toMatch(/^Token \(shown once\): sumi_/);
+
+    const listed = await sumiJson(z.array(TokenInfoSchema), ["token", "list", "--user", user.id]);
+    expect(listed).toHaveLength(3);
+    const text = await sumi(["token", "list", "--user", user.id]);
+    expect(text.out).toContain(listed[0]!.id);
+    expect(text.out).not.toContain(second);
+
+    for (const t of listed) {
+      expect((await sumi(["token", "revoke", t.id])).out).toBe(`Revoked ${t.id}\n`);
+    }
+    for (const token of [first, second]) {
+      expect((await sumi(["whoami"], { SUMI_TOKEN: token })).err).toContain("Missing or invalid token");
+    }
+    expect((await sumi(["token", "list", "--user", user.id])).out).toBe("No tokens\n");
+  });
+
+  it("explains a token id that does not exist", async () => {
+    expect((await sumi(["token", "revoke", "0123456789abcdef"])).err).toContain("not found");
   });
 });
 

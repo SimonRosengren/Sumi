@@ -4,12 +4,16 @@ import {
   CreateAgentInputSchema,
   CreateProjectInputSchema,
   CreateTicketInputSchema,
+  CreateTokenInputSchema,
   ListActivityInputSchema,
   ListTicketsInputSchema,
+  ListTokensInputSchema,
   MoveTicketInputSchema,
   TicketKeySchema,
+  TokenIdSchema,
   UpdateTicketInputSchema,
   type ErrorCode,
+  type AuthConfig,
   type ErrorResponse,
   type User,
 } from "@sumi/contract";
@@ -18,6 +22,7 @@ import { Hono, type Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
+import { githubAuth, type GithubOptions } from "./github-auth";
 
 type Env = { Variables: { user: User } };
 
@@ -48,7 +53,12 @@ const PING_MS = 25_000;
 
 const KeyParamSchema = z.object({ key: TicketKeySchema });
 
-export function createApp(core: Core) {
+export interface AppOptions {
+  /** Enables "Sign in with GitHub". Without it, humans sign in with an API token only. */
+  github?: GithubOptions;
+}
+
+export function createApp(core: Core, options: AppOptions = {}) {
   const app = new Hono<Env>();
 
   app.onError((err, c) => {
@@ -61,6 +71,10 @@ export function createApp(core: Core) {
   app.notFound((c) => fail(c, "not_found", "Route not found"));
 
   app.get("/health", (c) => c.json({ ok: true }));
+
+  // Sign-in routes are public: nobody has a token yet.
+  app.get("/auth/config", (c) => c.json({ github: options.github !== undefined } satisfies AuthConfig));
+  if (options.github) app.route("/", githubAuth(core, options.github));
 
   // Everything below requires `Authorization: Bearer <token>`.
   app.use("*", async (c, next) => {
@@ -79,6 +93,21 @@ export function createApp(core: Core) {
   app.post("/agents", validate("json", CreateAgentInputSchema), async (c) => {
     const created = await core.users.createAgent(c.get("user").id, c.req.valid("json"));
     return c.json(created, 201);
+  });
+
+  app.get("/tokens", validate("query", ListTokensInputSchema), async (c) =>
+    c.json(await core.tokens.list(c.get("user").id, c.req.valid("query").userId)),
+  );
+
+  app.post("/tokens", validate("json", CreateTokenInputSchema), async (c) => {
+    const actorId = c.get("user").id;
+    const token = await core.tokens.create(actorId, c.req.valid("json").userId ?? actorId);
+    return c.json({ token }, 201);
+  });
+
+  app.delete("/tokens/:id", validate("param", z.object({ id: TokenIdSchema })), async (c) => {
+    await core.tokens.revoke(c.get("user").id, c.req.valid("param").id);
+    return c.body(null, 204);
   });
 
   app.get("/projects", async (c) => c.json(await core.projects.list()));

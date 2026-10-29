@@ -22,7 +22,7 @@ function toUser(doc: UserDoc): User {
  * actor, so creating one is the only mutation that is not written to the activity log.
  */
 export function createUserService({ cols, tx }: Ctx) {
-  return {
+  const service = {
     async create(input: CreateUserInput): Promise<User> {
       const data = parse(CreateUserInputSchema, input);
       const doc: UserDoc = {
@@ -58,6 +58,27 @@ export function createUserService({ cols, tx }: Ctx) {
       });
     },
 
+    /**
+     * GitHub sign-in: returns the human with this GitHub id, creating them on first sign-in.
+     * Like `create`, done by the system and not written to the activity log.
+     */
+    async signInWithGithub(input: { githubId: number; name: string }): Promise<User> {
+      const find = async () => {
+        const doc = await cols.users.findOne({ githubId: input.githubId });
+        return doc ? toUser(doc) : null;
+      };
+      const existing = await find();
+      if (existing) return existing;
+      try {
+        return await service.create({ kind: "human", name: input.name, githubId: input.githubId });
+      } catch (err) {
+        // Two first sign-ins at once: the other one won, use theirs.
+        const winner = err instanceof ConflictError ? await find() : null;
+        if (winner) return winner;
+        throw err;
+      }
+    },
+
     async list(): Promise<User[]> {
       const docs = await cols.users.find().sort({ createdAt: 1, _id: 1 }).toArray();
       return docs.map(toUser);
@@ -68,4 +89,5 @@ export function createUserService({ cols, tx }: Ctx) {
       return doc ? toUser(doc) : null;
     },
   };
+  return service;
 }

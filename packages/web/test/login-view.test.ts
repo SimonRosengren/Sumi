@@ -6,7 +6,10 @@ import { alice } from "./fixtures";
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  vi.stubGlobal("fetch", vi.fn(async () => json({ github: false }))); // the sign-in screen asks which methods exist
+});
 afterEach(() => vi.unstubAllGlobals());
 
 async function submit(token: string) {
@@ -26,12 +29,11 @@ describe("LoginView", () => {
   });
 
   it("stores a valid token and emits it", async () => {
-    const fetchMock = vi.fn(async () => json({ ...alice, createdAt: alice.createdAt.toISOString() }));
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => json({ ...alice, createdAt: alice.createdAt.toISOString() }));
     vi.stubGlobal("fetch", fetchMock);
     const wrapper = await submit("  sumi_good  ");
 
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/api/me")) as unknown as [string, RequestInit];
     expect(url).toMatch(/\/api\/me$/);
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer sumi_good");
     expect(wrapper.emitted("signedIn")).toEqual([["sumi_good"]]);
@@ -47,5 +49,31 @@ describe("LoginView", () => {
     expect(wrapper.get('[role="alert"]').text()).toBe("Missing or invalid token");
     expect(wrapper.emitted("signedIn")).toBeUndefined();
     expect(localStorage.getItem("sumi.token")).toBeNull();
+  });
+});
+
+describe("LoginView with GitHub sign-in", () => {
+  const stubConfig = (github: boolean) =>
+    vi.stubGlobal("fetch", vi.fn(async () => json({ github })));
+
+  it("offers GitHub only when the API has it enabled", async () => {
+    stubConfig(false);
+    const off = mount(LoginView);
+    await flushPromises();
+    expect(off.text()).not.toContain("Continue with GitHub");
+
+    stubConfig(true);
+    const on = mount(LoginView);
+    await flushPromises();
+    const link = on.get("a");
+    expect(link.text()).toBe("Continue with GitHub");
+    expect(link.attributes("href")).toBe("/api/auth/github");
+  });
+
+  it("shows why a GitHub sign-in failed", async () => {
+    stubConfig(true);
+    const wrapper = mount(LoginView, { props: { initialError: "GitHub user x is not allowed to sign in here." } });
+    await flushPromises();
+    expect(wrapper.get('[role="alert"]').text()).toContain("not allowed");
   });
 });

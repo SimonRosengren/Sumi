@@ -1,6 +1,7 @@
 /**
  * Creates the first human user and prints an API token for them. Needed because
- * every API call is authenticated and GitHub sign-in is not built yet.
+ * every API call is authenticated. (With GitHub sign-in configured you can skip this
+ * and sign in on the board instead.)
  * Usage: pnpm --filter @sumi/api bootstrap <name>
  */
 import { createCore } from "@sumi/core";

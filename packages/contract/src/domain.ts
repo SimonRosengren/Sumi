@@ -59,6 +59,16 @@ export const TicketSchema = z.object({
 });
 export type Ticket = z.infer<typeof TicketSchema>;
 
+/** Public handle of a token: the first 16 hex characters of its hash. It cannot be used to authenticate. */
+export const TokenIdSchema = z.string().regex(/^[0-9a-f]{16}$/, "16 hex characters");
+
+export const TokenInfoSchema = z.object({
+  id: TokenIdSchema,
+  userId: z.string(),
+  createdAt: z.coerce.date(),
+});
+export type TokenInfo = z.infer<typeof TokenInfoSchema>;
+
 export const ACTIVITY_ACTIONS = [
   "project.created",
   "ticket.created",
@@ -67,6 +77,7 @@ export const ACTIVITY_ACTIONS = [
   "ticket.claimed",
   "agent.created",
   "token.created",
+  "token.revoked",
 ] as const;
 export const ActivityActionSchema = z.enum(ACTIVITY_ACTIONS);
 export type ActivityAction = z.infer<typeof ActivityActionSchema>;

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll } from "vitest";
 import { createCore, type Core } from "@sumi/core";
-import { createApp } from "../src";
+import { createApp, type AppOptions } from "../src";
 
 const uri =
   process.env.MONGODB_URI ?? "mongodb://localhost:27018/?replicaSet=rs0&directConnection=true";
@@ -19,11 +19,11 @@ export interface Harness {
 }
 
 /** Gives each test file its own throwaway database on the local dev Mongo (`pnpm dev:db`). */
-export function useApi(): () => Harness {
+export function useApi(options: AppOptions = {}): () => Harness {
   let h: Harness | undefined;
   beforeAll(async () => {
     const core = await createCore({ uri, dbName: `sumi_test_${crypto.randomUUID().replaceAll("-", "")}` });
-    const app = createApp(core);
+    const app = createApp(core, options);
     const alice = await core.users.create({ kind: "human", name: "Alice" });
     const token = await core.tokens.create(alice.id, alice.id);
     h = {
@@ -41,7 +41,7 @@ export function useApi(): () => Harness {
           },
           ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
         });
-        return { status: res.status, body: await res.json() };
+        return { status: res.status, body: res.status === 204 ? null : await res.json() };
       },
     };
   });

@@ -57,4 +57,4 @@ Live updates: every mutation writes an activity entry -> Mongo change stream (`c
 ## Auth
 
 - All clients: `Authorization: Bearer <token>`, one token per user ([ADR 0013](adr/0013-api-token-authentication.md)). Agents are users with `kind: agent`, created by a human, so the activity log can attribute actions.
-- Humans in the browser: today they paste an API token on the login screen (kept in `localStorage`). GitHub OAuth with a session cookie is planned and will replace this.
+- Humans in the browser: "Continue with GitHub" (allow-listed logins) or paste a token. GitHub sign-in ends by issuing an ordinary API token that the web app keeps in `localStorage`, so there is one auth mechanism ([ADR 0021](adr/0021-github-sign-in-and-token-management.md)). Tokens can be listed and revoked.

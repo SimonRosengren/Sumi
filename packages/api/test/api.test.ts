@@ -4,6 +4,8 @@ import {
   ErrorResponseSchema,
   ProjectSchema,
   TicketSchema,
+  TokenCreatedSchema,
+  TokenInfoSchema,
   UserSchema,
 } from "@sumi/contract";
 import { describe, expect, it } from "vitest";
@@ -212,5 +214,59 @@ describe("GET /events", () => {
       actorId: h.aliceId,
     });
     await reader.cancel();
+  });
+});
+
+describe("tokens", () => {
+  it("creates, lists and revokes tokens", async () => {
+    const h = api();
+    const created = await h.call("POST", "/tokens", { body: {} });
+    expect(created.status).toBe(201);
+    const token = TokenCreatedSchema.parse(created.body).token;
+    expect((await h.call("GET", "/me", { token })).status).toBe(200);
+
+    const listed = await h.call("GET", "/tokens");
+    expect(listed.status).toBe(200);
+    const infos = z.array(TokenInfoSchema).parse(listed.body);
+    expect(infos.length).toBeGreaterThanOrEqual(2);
+    expect(JSON.stringify(listed.body)).not.toContain(token);
+
+    const id = infos[0]!.id; // newest: the one just created
+    expect((await h.call("DELETE", `/tokens/${id}`)).status).toBe(204);
+    expect((await h.call("GET", "/me", { token })).status).toBe(401);
+    expect((await h.call("DELETE", `/tokens/${id}`)).status).toBe(404);
+  });
+
+  it("manages an agent's tokens", async () => {
+    const h = api();
+    const agent = AgentCreatedSchema.parse((await h.call("POST", "/agents", { body: { name: "Rotator" } })).body);
+    const more = await h.call("POST", "/tokens", { body: { userId: agent.user.id } });
+    expect(more.status).toBe(201);
+    const listed = z.array(TokenInfoSchema).parse((await h.call("GET", `/tokens?userId=${agent.user.id}`)).body);
+    expect(listed).toHaveLength(2);
+    for (const t of listed) await h.call("DELETE", `/tokens/${t.id}`);
+    expect((await h.call("GET", "/me", { token: agent.token })).status).toBe(401);
+  });
+
+  it("is limited to humans and validates ids", async () => {
+    const h = api();
+    const agent = AgentCreatedSchema.parse((await h.call("POST", "/agents", { body: { name: "Nosy" } })).body);
+    expect((await h.call("GET", "/tokens", { token: agent.token })).status).toBe(403);
+    expect((await h.call("DELETE", "/tokens/0123456789abcdef", { token: agent.token })).status).toBe(403);
+    expect((await h.call("DELETE", "/tokens/nope")).status).toBe(400);
+    expect((await h.call("GET", "/tokens?userId=ghost")).status).toBe(404);
+    expect((await h.call("GET", "/tokens", { token: null })).status).toBe(401);
+  });
+});
+
+describe("GET /auth/config", () => {
+  it("is public and says GitHub sign-in is off by default", async () => {
+    const res = await api().call("GET", "/auth/config", { token: null });
+    expect(res).toEqual({ status: 200, body: { github: false } });
+  });
+
+  it("does not expose the GitHub routes when it is off", async () => {
+    const res = await api().app.request("/auth/github");
+    expect(res.status).toBe(401);
   });
 });

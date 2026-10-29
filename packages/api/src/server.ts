@@ -1,10 +1,12 @@
 import { serve } from "@hono/node-server";
 import { createCore } from "@sumi/core";
 import { createApp } from "./app";
-import { config } from "./config";
+import { config, githubOptions } from "./config";
 
+const github = githubOptions(); // fails fast on a half-configured GitHub sign-in
 const core = await createCore({ uri: config.mongoUri });
-const server = serve({ fetch: createApp(core).fetch, port: config.port }, (info) => {
+const app = createApp(core, github ? { github } : {});
+const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`sumi api listening on http://localhost:${info.port}`);
 });
 

@@ -66,3 +66,11 @@ export type CreateAgentInput = z.infer<typeof CreateAgentInputSchema>;
 
 export const ClaimNextInputSchema = z.object({ projectKey: ProjectKeySchema });
 export type ClaimNextInput = z.infer<typeof ClaimNextInputSchema>;
+
+/** Without `userId`, the caller's own tokens. */
+export const ListTokensInputSchema = z.object({ userId: z.string().optional() });
+export type ListTokensInput = z.infer<typeof ListTokensInputSchema>;
+
+/** Without `userId`, a token for the caller. */
+export const CreateTokenInputSchema = z.object({ userId: z.string().optional() });
+export type CreateTokenInput = z.infer<typeof CreateTokenInputSchema>;

@@ -1,12 +1,16 @@
 import {
   ActivityEntrySchema,
   AgentCreatedSchema,
+  AuthConfigSchema,
   ErrorResponseSchema,
   ProjectSchema,
   TicketSchema,
+  TokenCreatedSchema,
+  TokenInfoSchema,
   UserSchema,
   type ActivityEntry,
   type AgentCreated,
+  type AuthConfig,
   type CreateProjectInput,
   type CreateTicketInput,
   type ListActivityInput,
@@ -14,6 +18,7 @@ import {
   type MoveTicketInput,
   type Project,
   type Ticket,
+  type TokenInfo,
   type UpdateTicketInput,
   type User,
 } from "@sumi/contract";
@@ -185,8 +190,26 @@ export function createClient({ url, token, fetch: fetchImpl = fetch }: ClientOpt
       (await request("POST", "/tickets/claim-next", Claimed, { body: { projectKey } })).ticket,
     listActivity: (input: ListActivityInput): Promise<ActivityEntry[]> =>
       request("GET", "/activity", Activity, { query: input }),
+    listTokens: (userId?: string): Promise<TokenInfo[]> =>
+      request("GET", "/tokens", z.array(TokenInfoSchema), { query: { userId } }),
+    /** Creates a token for `userId` (default: yourself). Returns the plaintext, shown only once. */
+    createToken: async (userId?: string): Promise<string> =>
+      (await request("POST", "/tokens", TokenCreatedSchema, { body: userId ? { userId } : {} })).token,
+    revokeToken: (id: string): Promise<void> => request("DELETE", `/tokens/${id}`, z.undefined()),
     watch,
   };
+}
+
+/** Asks an API which sign-in methods it offers. Needs no token, so it is not part of the client. */
+export async function getAuthConfig(url: string, fetchImpl: typeof fetch = fetch): Promise<AuthConfig> {
+  try {
+    const res = await fetchImpl(`${url.replace(/\/+$/, "")}/auth/config`);
+    const parsed = AuthConfigSchema.safeParse(await res.json());
+    if (parsed.success) return parsed.data;
+  } catch {
+    // Unreachable or not JSON: treat as "no GitHub sign-in", the token form still works.
+  }
+  return { github: false };
 }
 
 export type Client = ReturnType<typeof createClient>;

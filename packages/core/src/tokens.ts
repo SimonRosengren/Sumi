@@ -1,8 +1,15 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { ClientSession } from "mongodb";
-import type { User } from "@sumi/contract";
+import { TokenIdSchema, type TokenInfo, type User } from "@sumi/contract";
 import type { Collections } from "./db";
+import { NotFoundError, parse } from "./errors";
 import { assertHuman, assertUserExists, recordActivity, type Ctx } from "./shared";
+
+const toInfo = (doc: { _id: string; userId: string; createdAt: Date }): TokenInfo => ({
+  id: doc._id.slice(0, 16),
+  userId: doc.userId,
+  createdAt: doc.createdAt,
+});
 
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -29,6 +36,32 @@ export function createTokenService({ cols, tx }: Ctx) {
         const token = await issueToken(cols, session, userId);
         await recordActivity(cols, session, { actorId, action: "token.created", data: { userId } });
         return token;
+      });
+    },
+
+    /** A human lists the tokens of a user (default: themselves), newest first. Never includes the secrets. */
+    async list(actorId: string, userId: string = actorId): Promise<TokenInfo[]> {
+      return tx(async (session) => {
+        await assertHuman(cols, actorId, session);
+        await assertUserExists(cols, userId, session);
+        const docs = await cols.tokens.find({ userId }, { session }).sort({ createdAt: -1, _id: 1 }).toArray();
+        return docs.map(toInfo);
+      });
+    },
+
+    /** A human revokes a token by its public id. The token stops working at once. */
+    async revoke(actorId: string, tokenId: string): Promise<void> {
+      const id = parse(TokenIdSchema, tokenId);
+      await tx(async (session) => {
+        await assertHuman(cols, actorId, session);
+        // The id is a hex prefix of the stored hash. Hex needs no escaping in a regex.
+        const doc = await cols.tokens.findOneAndDelete({ _id: { $regex: `^${id}` } }, { session });
+        if (!doc) throw new NotFoundError(`Token ${id} not found`);
+        await recordActivity(cols, session, {
+          actorId,
+          action: "token.revoked",
+          data: { userId: doc.userId, tokenId: id },
+        });
       });
     },
 
