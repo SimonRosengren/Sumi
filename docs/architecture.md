@@ -12,7 +12,13 @@ packages/
   web/       Vue 3 Kanban board, HTTP client of the API
 ```
 
-Packages are created as their milestone starts; see [roadmap.md](roadmap.md).
+Packages are created as their milestone starts; see [roadmap.md](roadmap.md). `contract` and `core` exist today.
+
+Internal packages export TypeScript source and have no build step ([ADR 0011](adr/0011-internal-packages-export-typescript-source.md)).
+
+## core layout
+
+`createCore({ uri, dbName })` returns `{ users, projects, tickets, activity }` services. One file per service in `packages/core/src`. Services take the acting user id as the first argument of every mutation, validate input with the contract schemas, and throw `NotFoundError`, `ConflictError` or `ValidationError` (all extend `SumiError`), which `api` maps to HTTP statuses. Mutations run in a transaction together with their activity entry ([ADR 0012](adr/0012-mongo-transactions-for-mutations.md)).
 
 ## Dependency rules
 
@@ -24,6 +30,7 @@ contract  <-  cli | mcp | web
 - `core` depends on `contract` and the Mongo driver only.
 - `api` is the only package that imports `core`. It is built with Hono ([ADR 0009](adr/0009-hono-for-http-api.md)).
 - `cli`, `mcp`, `web` depend on `contract` only and reach everything through HTTP.
+- These rules are enforced by `no-restricted-imports` in `eslint.config.js` (`pnpm lint`).
 
 ## Data flow
 

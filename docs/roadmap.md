@@ -1,7 +1,7 @@
 # Roadmap
 
 - [x] 1. Scaffold and agent docs (monorepo, tooling, AGENTS.md, ADRs)
-- [ ] 2. Contract and core (data model, services, Mongo repositories)
+- [x] 2. Contract and core (data model, services, Mongo repositories)
 - [ ] 3. API and auth (GitHub OAuth for humans, tokens for agents, SSE)
 - [ ] 4. CLI
 - [ ] 5. MCP server

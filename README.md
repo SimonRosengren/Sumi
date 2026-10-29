@@ -6,7 +6,7 @@ Status: early development. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 22.12+
 - pnpm
 - Docker (for the local MongoDB)
 

@@ -26,8 +26,10 @@ pnpm install
 pnpm dev:db       # local MongoDB (replica set) via docker compose
 pnpm lint
 pnpm typecheck
-pnpm test
+pnpm test         # needs `pnpm dev:db` running (core tests use a real MongoDB)
 ```
+
+Node 22.12+ is required (`.nvmrc`).
 
 Definition of done: `pnpm lint`, `pnpm typecheck` and `pnpm test` all pass.
 
