@@ -29,11 +29,12 @@ describe("LoginView", () => {
   });
 
   it("stores a valid token and emits it", async () => {
-    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => json({ ...alice, createdAt: alice.createdAt.toISOString() }));
+    const fetchMock = vi.fn(async () => json({ ...alice, createdAt: alice.createdAt.toISOString() }));
     vi.stubGlobal("fetch", fetchMock);
     const wrapper = await submit("  sumi_good  ");
 
-    const [url, init] = fetchMock.mock.calls.find(([u]) => String(u).endsWith("/api/me")) as unknown as [string, RequestInit];
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const [url, init] = calls.find(([u]) => u.endsWith("/api/me"))!;
     expect(url).toMatch(/\/api\/me$/);
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer sumi_good");
     expect(wrapper.emitted("signedIn")).toEqual([["sumi_good"]]);
