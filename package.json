@@ -1,6 +1,24 @@
 {
   "name": "sumi",
   "private": true,
+  "description": "Open-source, self-hosted alternative to Linear, Jira and Trello: a minimal Kanban ticket tracker with an MCP server and CLI for AI agents.",
+  "keywords": [
+    "ticket-management",
+    "issue-tracker",
+    "kanban",
+    "project-management",
+    "linear-alternative",
+    "jira-alternative",
+    "trello-alternative",
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "self-hosted",
+    "open-source"
+  ],
+  "homepage": "https://github.com/SimonRosengren/Sumi#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/SimonRosengren/Sumi.git" },
+  "bugs": { "url": "https://github.com/SimonRosengren/Sumi/issues" },
   "license": "MIT",
   "type": "module",
   "engines": {
