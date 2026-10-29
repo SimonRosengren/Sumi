@@ -7,18 +7,20 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "dev:db": "docker compose up -d mongo",
+    "dev:db": "docker compose up -d --wait mongo",
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
     "dev:api": "pnpm --filter @sumi/api dev",
     "bootstrap": "pnpm --filter @sumi/api bootstrap",
-    "dev:web": "pnpm --filter @sumi/web dev"
+    "dev:web": "pnpm --filter @sumi/web dev",
+    "dev": "pnpm dev:db && concurrently -n api,web -c yellow,green --kill-others-on-fail \"pnpm dev:api\" \"pnpm dev:web\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@sumi/cli": "workspace:*",
     "@sumi/mcp": "workspace:*",
+    "concurrently": "^10.0.6",
     "eslint": "^10.13.0",
     "eslint-plugin-vue": "^10.12.0",
     "tsx": "^4.23.15",

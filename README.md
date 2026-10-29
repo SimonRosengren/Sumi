@@ -20,7 +20,7 @@ pnpm bootstrap <your-name>   # creates the first user and prints an API token (s
 pnpm dev:api                 # API on http://localhost:3000
 ```
 
-Then open the board:
+Or start everything (MongoDB, API and board) with one command: `pnpm dev`. Separately, to open the board:
 
 ```sh
 pnpm dev:web                 # http://localhost:5173, sign in by pasting your token
