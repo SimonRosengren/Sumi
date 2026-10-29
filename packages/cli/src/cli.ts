@@ -6,7 +6,7 @@ import {
   type UpdateTicketInput,
 } from "@sumi/contract";
 import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
-import { ApiError, createClient, type Client } from "./client";
+import { ApiError, createClient, type Client } from "@sumi/client";
 import {
   formatActivityLine,
   formatProjectLine,

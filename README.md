@@ -30,6 +30,32 @@ pnpm exec sumi ticket list SUMI
 pnpm exec sumi --help        # all commands; add --json for machine-readable output
 ```
 
+## Use it from an agent (MCP)
+
+The MCP server speaks stdio and reads the same `SUMI_TOKEN` / `SUMI_URL`. Give each agent its own token (`pnpm exec sumi agent create <name>`) so the activity log shows who did what. Replace `/path/to/sumi` with this checkout.
+
+opencode (`opencode.json`):
+
+```json
+{
+  "mcp": {
+    "sumi": {
+      "type": "local",
+      "command": ["pnpm", "--dir", "/path/to/sumi", "exec", "sumi-mcp"],
+      "environment": { "SUMI_TOKEN": "<agent token>", "SUMI_URL": "http://localhost:3000" }
+    }
+  }
+}
+```
+
+Claude Code:
+
+```sh
+claude mcp add sumi -e SUMI_TOKEN=<agent token> -- pnpm --dir /path/to/sumi exec sumi-mcp
+```
+
+Tools: `whoami`, `list_projects`, `list_tickets`, `get_ticket`, `create_ticket`, `update_ticket`, `move_ticket`, `claim_next_ticket`.
+
 ## Contributing (humans and agents)
 
 Read [AGENTS.md](AGENTS.md) first. Architecture and decisions live in [docs/](docs/README.md).

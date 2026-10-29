@@ -7,18 +7,19 @@ packages/
   contract/  zod schemas for requests, responses, events (shared types)
   core/      domain model, services, Mongo repositories (all business logic)
   api/       HTTP server: auth, routes, SSE. Wraps core.
-  cli/       HTTP client + commands (--json)
-  mcp/       MCP server, HTTP client of the API
+  client/    typed HTTP client of the API, shared by cli and mcp
+  cli/       commands (--json), built on client
+  mcp/       MCP server (stdio), built on client
   web/       Vue 3 Kanban board, HTTP client of the API
 ```
 
-Packages are created as their milestone starts; see [roadmap.md](roadmap.md). `contract`, `core`, `api` and `cli` exist today.
+Packages are created as their milestone starts; see [roadmap.md](roadmap.md). `contract`, `core`, `api`, `client`, `cli` and `mcp` exist today.
 
 Internal packages export TypeScript source and have no build step ([ADR 0011](adr/0011-internal-packages-export-typescript-source.md)).
 
 ## core layout
 
-`createCore({ uri, dbName })` returns `{ users, projects, tickets, activity }` services. One file per service in `packages/core/src`. Services take the acting user id as the first argument of every mutation, validate input with the contract schemas, and throw `NotFoundError`, `ConflictError` or `ValidationError` (all extend `SumiError`), which `api` maps to HTTP statuses. Mutations run in a transaction together with their activity entry ([ADR 0012](adr/0012-mongo-transactions-for-mutations.md)).
+`createCore({ uri, dbName })` returns `{ users, projects, tickets, tokens, activity }` services. One file per service in `packages/core/src`. Services take the acting user id as the first argument of every mutation, validate input with the contract schemas, and throw `NotFoundError`, `ConflictError` or `ValidationError` (all extend `SumiError`), which `api` maps to HTTP statuses. Mutations run in a transaction together with their activity entry ([ADR 0012](adr/0012-mongo-transactions-for-mutations.md)).
 
 ## api layout
 
@@ -28,16 +29,21 @@ Internal packages export TypeScript source and have no build step ([ADR 0011](ad
 
 `run(argv, { env, stdout, stderr })` in `packages/cli/src/cli.ts` defines every command and returns the exit code; `main.ts` is the thin entry (`pnpm exec sumi`). `client.ts` is the typed HTTP client (responses parsed with contract schemas), `format.ts` the text output. Design choices are in [ADR 0015](adr/0015-cli-design.md). Run `pnpm exec sumi --help` for the command list.
 
+## mcp layout
+
+`createServer(client)` in `packages/mcp/src/server.ts` registers the tools and returns an `McpServer`; `main.ts` connects it to stdio. The tool list, response shape and what is deliberately not exposed are in [ADR 0016](adr/0016-mcp-server-and-shared-client.md). Tool descriptions are what the agent reads, so keep them short and accurate.
+
 ## Dependency rules
 
 ```
 contract  <-  core  <-  api
-contract  <-  cli | mcp | web
+contract  <-  client  <-  cli | mcp
+contract  <-  web
 ```
 
 - `core` depends on `contract` and the Mongo driver only.
 - `api` is the only package that imports `core`. It is built with Hono ([ADR 0009](adr/0009-hono-for-http-api.md)).
-- `cli`, `mcp`, `web` depend on `contract` only and reach everything through HTTP.
+- `client`, `cli`, `mcp`, `web` never import `core` or the database driver and reach everything through HTTP. `cli` and `mcp` share `client`; `web` uses `contract` only.
 - These rules are enforced by `no-restricted-imports` in `eslint.config.js` (`pnpm lint`).
 
 ## Data flow

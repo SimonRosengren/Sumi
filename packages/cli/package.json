@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@sumi/client": "workspace:*",
     "@sumi/contract": "workspace:*",
     "commander": "^15.0.0",
     "zod": "^4.6.7"

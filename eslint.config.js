@@ -29,7 +29,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     // Clients reach everything through the HTTP API, never core or the database.
-    files: ["packages/{cli,mcp,web}/**/*.{ts,vue}"],
+    files: ["packages/{client,cli,mcp,web}/**/*.{ts,vue}"],
     rules: forbid(["@sumi/core", "mongodb"], "Clients must use the HTTP API (AGENTS.md rule 1).", {
       byPath: ["core"],
     }),

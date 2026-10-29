@@ -26,6 +26,7 @@ pnpm install
 pnpm dev:db       # local MongoDB (replica set) via docker compose
 pnpm dev:api      # API on :3000 (run `pnpm bootstrap <name>` once for a token)
 pnpm exec sumi --help   # the CLI (needs SUMI_TOKEN, see .env.example)
+pnpm exec sumi-mcp      # the MCP server on stdio (same env)
 pnpm lint
 pnpm typecheck
 pnpm test         # needs `pnpm dev:db` running (core tests use a real MongoDB)
@@ -37,7 +38,7 @@ Definition of done: `pnpm lint`, `pnpm typecheck` and `pnpm test` all pass.
 
 ## Rules
 
-1. **All business logic lives in `packages/core`.** `api` wraps it. `cli`, `mcp` and `web` talk to the API over HTTP only and never import `core` or the database driver.
+1. **All business logic lives in `packages/core`.** `api` wraps it. `client`, `cli`, `mcp` and `web` talk to the API over HTTP only and never import `core` or the database driver.
 2. **One contract.** Request/response types are zod schemas in `packages/contract`. Never redefine them by hand in a client.
 3. **ADRs are append-only.** Never edit an accepted ADR. Supersede it with a new one that links back. Write an ADR when adding a dependency, changing a package boundary, or making a choice someone could reasonably question later.
 4. **Docs change with code.** If a change contradicts `architecture.md`, `domain.md` or an ADR, update or supersede it in the same change. Stale docs are worse than none.
