@@ -46,9 +46,10 @@ Definition of done: `pnpm lint`, `pnpm typecheck` and `pnpm test` all pass.
 3. **ADRs are append-only.** Never edit an accepted ADR. Supersede it with a new one that links back. Write an ADR when adding a dependency, changing a package boundary, or making a choice someone could reasonably question later.
 4. **Docs change with code.** If a change contradicts `architecture.md`, `domain.md` or an ADR, update or supersede it in the same change. Stale docs are worse than none.
 5. **Every mutation is attributed** to a user (human or agent) and recorded in the activity log.
-6. **Agent-friendly output.** CLI commands support `--json`. MCP tools are few, clearly described, and return concise responses.
-7. **Prefer enforceable rules over prose.** If a rule can be a lint rule, type, or test, make it one.
-8. **Keep it minimal.** No speculative features, options, or abstractions.
+6. **Agent-friendly output.** CLI commands support `--json`. MCP tools are clearly described and return concise responses.
+7. **Everything in the UI exists for agents.** Whatever a human can do in the web UI is also a CLI command and an MCP tool, added in the same change. The CLI and MCP may do more than the UI, never less. Register every client method in `OPERATIONS` (`packages/client/src/operations.ts`); typecheck and the cli/mcp tests enforce it ([ADR 0029](docs/adr/0029-ui-features-exist-in-cli-and-mcp.md)).
+8. **Prefer enforceable rules over prose.** If a rule can be a lint rule, type, or test, make it one.
+9. **Keep it minimal.** No speculative features, options, or abstractions.
 
 ## Conventions
 

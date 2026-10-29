@@ -1,5 +1,5 @@
 import type { Client } from "@sumi/client";
-import type { Project, Ticket, User } from "@sumi/contract";
+import { DEFAULT_LANES, type Project, type Ticket, type User } from "@sumi/contract";
 import { vi } from "vitest";
 
 const now = new Date("2026-01-01T00:00:00Z");
@@ -22,8 +22,8 @@ export function ticket(overrides: Partial<Ticket> & Pick<Ticket, "key" | "title"
 }
 
 export const projects: Project[] = [
-  { key: "SUMI", name: "Sumi", createdAt: now },
-  { key: "WEB", name: "Website", createdAt: now },
+  { key: "SUMI", name: "Sumi", lanes: [...DEFAULT_LANES], createdAt: now },
+  { key: "WEB", name: "Website", lanes: [...DEFAULT_LANES], createdAt: now },
 ];
 
 export const tickets: Record<string, Ticket[]> = {
@@ -40,6 +40,10 @@ export function fakeClient(overrides: Partial<Record<keyof Client, unknown>> = {
   return {
     listProjects: vi.fn(async () => projects),
     listUsers: vi.fn(async () => [alice, bot]),
+    setLanes: vi.fn(async (key: string, { lanes }: { lanes: { id?: string; name: string }[] }) => ({
+      ...(projects.find((p) => p.key === key) as Project),
+      lanes: lanes.map((l) => ({ id: l.id ?? l.name.toLowerCase().replaceAll(" ", "_"), name: l.name })),
+    })),
     listTickets: vi.fn(async ({ projectKey }: { projectKey: string }) => tickets[projectKey] ?? []),
     moveTicket: vi.fn(async (key: string, { status }: { status: string }) => {
       const t = Object.values(tickets).flat().find((x) => x.key === key);
@@ -49,7 +53,14 @@ export function fakeClient(overrides: Partial<Record<keyof Client, unknown>> = {
       const t = Object.values(tickets).flat().find((x) => x.key === key);
       return { ...t, ...input, updatedAt: new Date() };
     }),
+    createTicket: vi.fn(async (input: { projectKey: string; title: string; description?: string; status?: string }) =>
+      ticket({ key: `${input.projectKey}-99`, ...input, title: input.title, status: (input.status ?? "backlog") as Ticket["status"] }),
+    ),
     listActivity: vi.fn(async () => []),
+    listComments: vi.fn(async () => []),
+    addComment: vi.fn(async (key: string, { body }: { body: string }) => ({
+      id: `c-${body}`, ticketKey: key, authorId: "u1", body, createdAt: new Date("2026-01-03T10:00:00Z"),
+    })),
     // Never connects. Tests drive it through the options passed to the first call.
     watch: vi.fn(({ signal }: { signal: AbortSignal }) => new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()))),
     ...overrides,

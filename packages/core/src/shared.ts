@@ -1,6 +1,6 @@
 import type { ClientSession } from "mongodb";
-import type { ActivityAction } from "@sumi/contract";
-import type { Collections, Tx } from "./db";
+import { DEFAULT_LANES, type ActivityAction, type Lane } from "@sumi/contract";
+import type { ActivityDoc, Collections, ProjectDoc, Tx } from "./db";
 import { ForbiddenError, NotFoundError } from "./errors";
 
 export interface Ctx {
@@ -29,19 +29,18 @@ export async function recordActivity(
     ticketKey?: string;
     data?: Record<string, unknown>;
   },
-): Promise<void> {
-  await cols.activity.insertOne(
-    {
-      _id: crypto.randomUUID(),
-      actorId: entry.actorId,
-      action: entry.action,
-      ...(entry.projectKey !== undefined && { projectKey: entry.projectKey }),
-      ...(entry.ticketKey !== undefined && { ticketKey: entry.ticketKey }),
-      data: entry.data ?? {},
-      createdAt: new Date(),
-    },
-    { session },
-  );
+): Promise<ActivityDoc> {
+  const doc: ActivityDoc = {
+    _id: crypto.randomUUID(),
+    actorId: entry.actorId,
+    action: entry.action,
+    ...(entry.projectKey !== undefined && { projectKey: entry.projectKey }),
+    ...(entry.ticketKey !== undefined && { ticketKey: entry.ticketKey }),
+    data: entry.data ?? {},
+    createdAt: new Date(),
+  };
+  await cols.activity.insertOne(doc, { session });
+  return doc;
 }
 
 /** Throws unless the actor exists and is a human. Used for credential management. */
@@ -49,4 +48,8 @@ export async function assertHuman(cols: Collections, id: string, session: Client
   const actor = await cols.users.findOne({ _id: id }, { session });
   if (!actor) throw new NotFoundError(`Actor ${id} not found`);
   if (actor.kind !== "human") throw new ForbiddenError("Only humans can manage agents and tokens");
+}
+
+export function lanesOf(project: ProjectDoc): Lane[] {
+  return project.lanes ?? DEFAULT_LANES.map((lane) => ({ ...lane }));
 }

@@ -128,3 +128,196 @@ describe("ticket detail", () => {
     expect(detail()?.textContent).toContain("Finished");
   });
 });
+
+const dialog = () => document.body.querySelector<HTMLElement>('[data-testid="new-ticket"]');
+
+async function type(selector: string, value: string, root: ParentNode = document.body) {
+  const el = root.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)!;
+  el.value = value;
+  el.dispatchEvent(new Event("input"));
+  await flushPromises();
+}
+
+async function press(selector: string) {
+  document.body.querySelector<HTMLElement>(selector)!.click();
+  await flushPromises();
+}
+
+describe("creating tickets", () => {
+  const openDialog = async () => {
+    await wrapper!.get('[aria-label="New ticket"]').trigger("click");
+    await flushPromises();
+  };
+  const submit = async () => {
+    dialog()!.querySelector("form")!.dispatchEvent(new Event("submit", { cancelable: true }));
+    await flushPromises();
+  };
+
+  it("creates a ticket in the selected project and shows it in its column", async () => {
+    const { client } = await render();
+    await openDialog();
+    expect(dialog()?.textContent).toContain("SUMI");
+    await type("#new-title", "  Fresh idea ");
+    await type("#new-description", "More detail");
+    const status = dialog()!.querySelector<HTMLSelectElement>("#new-status")!;
+    status.value = "todo";
+    status.dispatchEvent(new Event("change"));
+    await submit();
+
+    expect(client.createTicket).toHaveBeenCalledWith({
+      projectKey: "SUMI",
+      title: "Fresh idea",
+      description: "More detail",
+      status: "todo",
+    });
+    expect(dialog()).toBeNull();
+    expect(column("todo").text()).toContain("Fresh idea");
+  });
+
+  it("will not submit without a title", async () => {
+    const { client } = await render();
+    await openDialog();
+    const create = dialog()!.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect(create.disabled).toBe(true);
+    await type("#new-title", "   ");
+    await submit();
+    expect(client.createTicket).not.toHaveBeenCalled();
+  });
+
+  it("keeps the dialog open and shows the error when the server refuses", async () => {
+    const createTicket = vi.fn(async () => Promise.reject(new Error("Project SUMI not found")));
+    await render(fakeClient({ createTicket }));
+    await openDialog();
+    await type("#new-title", "Fresh idea");
+    await submit();
+    expect(dialog()?.querySelector('[role="alert"]')?.textContent).toBe("Project SUMI not found");
+    expect((dialog()!.querySelector("#new-title") as HTMLInputElement).value).toBe("Fresh idea");
+  });
+
+  it("starts empty every time it opens", async () => {
+    await render();
+    await openDialog();
+    await type("#new-title", "Draft");
+    await press('[data-testid="new-ticket"] [aria-label="Close"]');
+    await openDialog();
+    expect((dialog()!.querySelector("#new-title") as HTMLInputElement).value).toBe("");
+  });
+});
+
+describe("editing title and description", () => {
+  const edit = async (key: string) => {
+    await wrapper!.get(`[data-key="${key}"]`).trigger("click");
+    await flushPromises();
+    await press('[aria-label="Edit title and description"]');
+  };
+
+  it("saves only what changed", async () => {
+    const { client } = await render();
+    await edit("SUMI-1");
+    await type("#edit-title", " Renamed ");
+    await press('button[type="submit"][form="edit-ticket"]');
+    expect(client.updateTicket).toHaveBeenCalledWith("SUMI-1", { title: "Renamed" });
+    expect(detail()?.textContent).toContain("Renamed");
+    expect(detail()?.querySelector("#edit-title")).toBeNull();
+
+    await press('[aria-label="Edit title and description"]');
+    await type("#edit-description", "Now with words");
+    await press('button[type="submit"][form="edit-ticket"]');
+    expect(client.updateTicket).toHaveBeenLastCalledWith("SUMI-1", { description: "Now with words" });
+    expect(detail()?.textContent).toContain("Now with words");
+  });
+
+  it("makes no request when nothing changed, and cancel discards the draft", async () => {
+    const { client } = await render();
+    await edit("SUMI-1");
+    await press('button[type="submit"][form="edit-ticket"]');
+    expect(client.updateTicket).not.toHaveBeenCalled();
+
+    await press('[aria-label="Edit title and description"]');
+    await type("#edit-title", "Discard me");
+    const cancel = [...detail()!.querySelectorAll("button")].find((b) => b.textContent === "Cancel")!;
+    cancel.click();
+    await flushPromises();
+    expect(client.updateTicket).not.toHaveBeenCalled();
+    expect(detail()?.textContent).toContain("Backlog one");
+  });
+
+  it("stays in edit mode with the draft when saving fails", async () => {
+    const updateTicket = vi.fn(async () => Promise.reject(new Error("Nope")));
+    await render(fakeClient({ updateTicket }));
+    await edit("SUMI-1");
+    await type("#edit-title", "Renamed");
+    await press('button[type="submit"][form="edit-ticket"]');
+    expect((detail()!.querySelector("#edit-title") as HTMLInputElement).value).toBe("Renamed");
+    expect(wrapper!.get('[role="alert"]').text()).toBe("Nope");
+  });
+});
+
+describe("comments", () => {
+  const open = async (key: string) => {
+    await wrapper!.get(`[data-key="${key}"]`).trigger("click");
+    await flushPromises();
+  };
+  const textarea = () => detail()!.querySelector<HTMLTextAreaElement>("#new-comment")!;
+  const submit = async () => {
+    detail()!.querySelector<HTMLFormElement>("#new-comment")!.closest("form")!.dispatchEvent(new Event("submit"));
+    await flushPromises();
+  };
+
+  it("lists the ticket's comments with their authors", async () => {
+    const listComments = vi.fn(async () => [
+      { id: "c1", ticketKey: "SUMI-2", authorId: "u2", body: "On it\n- step", createdAt: new Date("2026-01-02T10:00:00Z") },
+    ]);
+    const { client } = await render(fakeClient({ listComments }));
+    await open("SUMI-2");
+    expect(client.listComments).toHaveBeenCalledWith("SUMI-2");
+    const items = detail()!.querySelectorAll('[data-testid="comment"]');
+    expect(items).toHaveLength(1);
+    expect(items[0]!.textContent).toContain("Claude");
+    expect(items[0]!.textContent).toContain("On it\n- step");
+  });
+
+  it("posts a comment, shows it at once and clears the box", async () => {
+    const { client } = await render();
+    await open("SUMI-1");
+    expect(detail()!.textContent).toContain("No comments yet.");
+    textarea().value = "  Looks good  ";
+    textarea().dispatchEvent(new Event("input"));
+    await submit();
+    expect(client.addComment).toHaveBeenCalledWith("SUMI-1", { body: "Looks good" });
+    expect(detail()!.querySelectorAll('[data-testid="comment"]')).toHaveLength(1);
+    expect(detail()!.textContent).toContain("Alice Andersson");
+    expect(textarea().value).toBe("");
+  });
+
+  it("keeps the text and shows the message when the server refuses", async () => {
+    const addComment = vi.fn(async () => Promise.reject(new Error("Ticket SUMI-1 not found")));
+    await render(fakeClient({ addComment }));
+    await open("SUMI-1");
+    textarea().value = "Hello";
+    textarea().dispatchEvent(new Event("input"));
+    await submit();
+    expect(detail()!.querySelector('[role="alert"]')?.textContent).toBe("Ticket SUMI-1 not found");
+    expect(textarea().value).toBe("Hello");
+  });
+
+  it("does not post an empty comment", async () => {
+    const { client } = await render();
+    await open("SUMI-1");
+    await submit();
+    expect(client.addComment).not.toHaveBeenCalled();
+  });
+
+  it("reloads comments when the server reports a change", async () => {
+    const { client } = await render();
+    await open("SUMI-1");
+    const calls = vi.mocked(client.listComments).mock.calls.length;
+    const { onEntry } = vi.mocked(client.watch).mock.calls[0]![0];
+    vi.useFakeTimers();
+    onEntry({ id: "a", actorId: "u2", action: "ticket.commented", ticketKey: "SUMI-1", data: {}, createdAt: new Date() });
+    await vi.advanceTimersByTimeAsync(200);
+    vi.useRealTimers();
+    await flushPromises();
+    expect(vi.mocked(client.listComments).mock.calls.length).toBeGreaterThan(calls);
+  });
+});

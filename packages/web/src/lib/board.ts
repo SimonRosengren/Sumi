@@ -1,17 +1,20 @@
-import { STATUSES, StatusSchema, type ActivityEntry, type Status, type Ticket, type User } from "@sumi/contract";
+import { placeLane } from "@sumi/client";
+import { StatusSchema, type ActivityEntry, type Lane, type Ticket, type User } from "@sumi/contract";
 
-export const STATUS_LABEL: Record<Status, string> = {
-  backlog: "Backlog",
-  todo: "Todo",
-  in_progress: "In progress",
-  in_review: "In review",
-  done: "Done",
-};
+/** Marks a drag as a lane being reordered, as opposed to a ticket (which travels as `text/plain`). */
+export const LANE_DRAG_TYPE = "application/x-sumi-lane";
 
-export function groupByStatus(tickets: Ticket[]): Record<Status, Ticket[]> {
-  const groups = Object.fromEntries(STATUSES.map((s) => [s, [] as Ticket[]])) as Record<Status, Ticket[]>;
-  for (const t of tickets) groups[t.status].push(t);
+/** Tickets by lane id. Every lane has an entry, in order within a lane; tickets in an unknown lane are left out. */
+export function groupByStatus(tickets: Ticket[], lanes: Lane[]): Record<string, Ticket[]> {
+  const groups: Record<string, Ticket[]> = Object.fromEntries(lanes.map((l) => [l.id, []]));
+  for (const t of tickets) groups[t.status]?.push(t);
   return groups;
+}
+
+/** The lanes with `id` moved to where `target` is: dragging a lane onto another puts it in that place. */
+export function moveLane(lanes: Lane[], id: string, target: string): Lane[] {
+  const to = lanes.findIndex((l) => l.id === target);
+  return to === -1 ? lanes : placeLane(lanes, id, to + 1);
 }
 
 export function initials(name: string): string {
@@ -25,7 +28,8 @@ export function indexUsers(users: User[]): Map<string, User> {
 }
 
 /** One line of ticket history, e.g. "moved from Todo to In progress". */
-export function describeActivity(entry: ActivityEntry): string {
+export function describeActivity(entry: ActivityEntry, lanes: Lane[] = []): string {
+  const laneName = (id: string) => lanes.find((l) => l.id === id)?.name ?? id;
   const data = entry.data;
   switch (entry.action) {
     case "ticket.created":
@@ -34,9 +38,11 @@ export function describeActivity(entry: ActivityEntry): string {
       const from = StatusSchema.safeParse(data.from);
       const to = StatusSchema.safeParse(data.to);
       return from.success && to.success
-        ? `moved from ${STATUS_LABEL[from.data]} to ${STATUS_LABEL[to.data]}`
+        ? `moved from ${laneName(from.data)} to ${laneName(to.data)}`
         : "moved this ticket";
     }
+    case "ticket.commented":
+      return "commented";
     case "ticket.claimed":
       return "claimed this ticket";
     case "ticket.updated": {

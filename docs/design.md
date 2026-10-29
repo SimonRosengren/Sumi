@@ -19,7 +19,7 @@ Warm neutrals for surfaces, one orange accent with a narrow job. Defined as expl
 | `primary-ink` | `#B5470C` | `#F09235` | the accent as text (5.0:1 on the page in light) |
 | `destructive` | `#B3402F` | `#E0705E` | errors, high priority |
 
-Status: `status-backlog`, `status-todo` (neutral), `status-in-progress` (blue), `status-in-review` (violet), `status-done` (green), all muted. Priority: `priority-low` (neutral), `priority-medium` (amber), `priority-high` (the destructive red).
+Status (the five default lanes; any other lane gets a plain `status-todo` circle): `status-backlog`, `status-todo` (neutral), `status-in-progress` (blue), `status-in-review` (violet), `status-done` (green), all muted. Priority: `priority-low` (neutral), `priority-medium` (amber), `priority-high` (the destructive red).
 
 The theme follows the system until the user toggles it; the choice is stored in `localStorage` (`sumi.theme`) and applied before first paint by the inline script in `index.html`.
 
@@ -61,7 +61,8 @@ Temporary, in `AppWordmark.vue`: the Lucide `Origami` icon (stroke 2.5, text col
 
 - The header has no divider or background of its own: it and the board are one seamless surface (`bg-background`). Keep it that way.
 - Cards are draggable between columns; the target column gets an accent tint and border while a card is over it. Cards are also keyboard-focusable and open the detail panel with Enter or click.
-- The ticket detail is a centered modal (nearly full width on narrow screens, scrolls when tall) with native `<select>` fields styled like inputs (custom chevron, `appearance-none`). Anything draggable also needs a non-drag way to do it (the status select), because touch screens cannot drag.
+- The ticket detail is a centered modal (nearly full width on narrow screens, scrolls when tall) with native `<select>` fields styled like inputs (custom chevron, `appearance-none`). Titles and descriptions are edited in place in an edit mode (pencil button, Save/Cancel), and tickets are created from the "New ticket" button in the header, in a modal of the same look ([ADR 0026](adr/0026-create-and-edit-tickets-in-the-web-ui.md)). Anything draggable also needs a non-drag way to do it (the status select), because touch screens cannot drag.
+- **Edit lanes** is a mode, switched on by the "Edit lanes" header button (which becomes "Done"). In it, lane headers show a grip, a pen (rename in place) and a trash button, can be dragged by their name (the target lane gets the accent tint), and a slim dashed "+ Add" placeholder sits at the far right ([ADR 0028](adr/0028-editable-lanes.md)). Lanes have no non-drag way to be reordered yet.
 
 ## Components
 

@@ -1,7 +1,26 @@
 import { z } from "zod";
 
-export const STATUSES = ["backlog", "todo", "in_progress", "in_review", "done"] as const;
-export const StatusSchema = z.enum(STATUSES);
+/** Stable handle of a lane. Chosen when the lane is created and never changed by renaming it. */
+export const LaneIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_]{0,39}$/, "lowercase letters, digits and underscores");
+
+export const LANE_NAME_MAX_LENGTH = 40;
+export const MAX_LANES = 20;
+
+/** A board column. Its position in `Project.lanes` is its place on the board (ADR 0028). */
+export const LaneSchema = z.object({ id: LaneIdSchema, name: z.string() });
+export type Lane = z.infer<typeof LaneSchema>;
+
+/** The lanes of a new project. Claiming and the GitHub webhook refer to `todo`, `in_progress`, `in_review` and `done`. */
+export const DEFAULT_LANES: readonly Lane[] = [
+  { id: "backlog", name: "Backlog" },
+  { id: "todo", name: "Todo" },
+  { id: "in_progress", name: "In progress" },
+  { id: "in_review", name: "In review" },
+  { id: "done", name: "Done" },
+];
+
+/** A ticket's status is the id of one of its project's lanes. */
+export const StatusSchema = LaneIdSchema;
 export type Status = z.infer<typeof StatusSchema>;
 
 export const PrioritySchema = z.enum(["low", "medium", "high"]);
@@ -40,6 +59,8 @@ export type User = z.infer<typeof UserSchema>;
 export const ProjectSchema = z.object({
   key: ProjectKeySchema,
   name: z.string(),
+  /** Board columns, left to right. Never empty. */
+  lanes: z.array(LaneSchema),
   createdAt: z.coerce.date(),
 });
 export type Project = z.infer<typeof ProjectSchema>;
@@ -69,12 +90,27 @@ export const TokenInfoSchema = z.object({
 });
 export type TokenInfo = z.infer<typeof TokenInfoSchema>;
 
+export const COMMENT_MAX_LENGTH = 10_000;
+
+/** A comment on a ticket. Stored as a `ticket.commented` activity entry (ADR 0027); `authorId` is its actor. */
+export const CommentSchema = z.object({
+  id: z.string(),
+  ticketKey: TicketKeySchema,
+  authorId: z.string(),
+  /** Markdown. */
+  body: z.string(),
+  createdAt: z.coerce.date(),
+});
+export type Comment = z.infer<typeof CommentSchema>;
+
 export const ACTIVITY_ACTIONS = [
   "project.created",
+  "project.lanes_updated",
   "ticket.created",
   "ticket.updated",
   "ticket.moved",
   "ticket.claimed",
+  "ticket.commented",
   "agent.created",
   "token.created",
   "token.revoked",

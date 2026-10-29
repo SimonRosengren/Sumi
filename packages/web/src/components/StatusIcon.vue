@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { Status } from "@sumi/contract";
-
 // Linear-style progress icons: the more work is done, the more the circle fills.
-defineProps<{ status: Status }>();
+// The five lanes every project starts with have their own look; any other lane is a plain circle.
+defineProps<{ status: string }>();
 
-const COLOR: Record<Status, string> = {
+const COLOR: Record<string, string> = {
   backlog: "text-status-backlog",
   todo: "text-status-todo",
   in_progress: "text-status-in-progress",
@@ -14,7 +13,7 @@ const COLOR: Record<Status, string> = {
 </script>
 
 <template>
-  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" :class="['size-4 shrink-0', COLOR[status]]">
+  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" :class="['size-4 shrink-0', COLOR[status] ?? 'text-status-todo']">
     <template v-if="status === 'done'">
       <circle cx="8" cy="8" r="7" fill="currentColor" />
       <path d="M5 8.2 7.1 10.3 11 6" stroke="var(--background)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />

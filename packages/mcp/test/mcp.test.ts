@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
-import { createClient } from "@sumi/client";
+import { createClient, OPERATIONS } from "@sumi/client";
+import { DEFAULT_LANES } from "@sumi/contract";
 import { Client as McpClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -35,18 +36,9 @@ afterAll(async () => {
 });
 
 describe("tools", () => {
-  it("exposes a small, documented tool set", async () => {
+  it("describes every tool", async () => {
+    // Which tools exist is pinned by the parity tests below.
     const { tools } = await mcp.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual([
-      "claim_next_ticket",
-      "create_ticket",
-      "get_ticket",
-      "list_projects",
-      "list_tickets",
-      "move_ticket",
-      "update_ticket",
-      "whoami",
-    ]);
     for (const t of tools) expect(t.description, t.name).toBeTruthy();
   });
 
@@ -54,7 +46,11 @@ describe("tools", () => {
     expect((await call(mcp, "whoami")).data).toMatchObject({ name: "Tester", kind: "human" });
     const api = createClient({ url, token });
     await api.createProject({ key: "MCPA", name: "MCP A" });
-    expect((await call(mcp, "list_projects")).data).toContainEqual({ key: "MCPA", name: "MCP A" });
+    expect((await call(mcp, "list_projects")).data).toContainEqual({
+      key: "MCPA",
+      name: "MCP A",
+      lanes: DEFAULT_LANES,
+    });
   });
 
   it("creates, gets, lists, updates and moves tickets with concise output", async () => {
@@ -123,6 +119,96 @@ describe("tools", () => {
     } finally {
       await agentMcp.close();
     }
+  });
+});
+
+describe("comments", () => {
+  it("adds comments as the calling user and shows them in get_ticket", async () => {
+    const api = createClient({ url, token });
+    await api.createProject({ key: "MCPE", name: "MCP E" });
+    await api.createTicket({ projectKey: "MCPE", title: "talk" });
+    expect(await call(mcp, "get_ticket", { key: "MCPE-1" })).toMatchObject({ data: expect.not.objectContaining({ comments: expect.anything() }) });
+
+    const me = (await call(mcp, "whoami")).data;
+    const added = await call(mcp, "add_comment", { key: "MCPE-1", body: "Started" });
+    expect(added.data).toMatchObject({ ticketKey: "MCPE-1" });
+    expect(added.data).not.toHaveProperty("body");
+
+    const got = await call(mcp, "get_ticket", { key: "MCPE-1" });
+    expect(got.data.comments).toEqual([expect.objectContaining({ authorId: me.id, body: "Started" })]);
+    expect((await call(mcp, "add_comment", { key: "MCPE-9", body: "x" })).isError).toBe(true);
+  });
+});
+
+describe("lanes", () => {
+  const laneIds = (data: { lanes: { id: string }[] }) => data.lanes.map((l) => l.id).join(" ");
+
+  it("adds, renames, moves and removes lanes", async () => {
+    await createClient({ url, token }).createProject({ key: "MCPL", name: "MCP lanes" });
+    const added = await call(mcp, "add_lane", { projectKey: "MCPL", name: "QA" });
+    expect(laneIds(added.data)).toBe("backlog todo in_progress in_review done qa");
+    expect(laneIds((await call(mcp, "add_lane", { projectKey: "MCPL", name: "Icebox", position: 1 })).data)).toBe(
+      "icebox backlog todo in_progress in_review done qa",
+    );
+    const renamed = await call(mcp, "rename_lane", { projectKey: "MCPL", laneId: "todo", name: "Ready" });
+    expect(renamed.data.lanes).toContainEqual({ id: "todo", name: "Ready" });
+    expect(laneIds((await call(mcp, "move_lane", { projectKey: "MCPL", laneId: "qa", position: 2 })).data)).toBe(
+      "icebox qa backlog todo in_progress in_review done",
+    );
+    expect(laneIds((await call(mcp, "remove_lane", { projectKey: "MCPL", laneId: "icebox" })).data)).toBe(
+      "qa backlog todo in_progress in_review done",
+    );
+    const listed = (await call(mcp, "list_projects")).data.find((p: { key: string }) => p.key === "MCPL");
+    expect(laneIds(listed)).toBe("qa backlog todo in_progress in_review done");
+  });
+
+  it("explains why an edit is refused", async () => {
+    await createClient({ url, token }).createProject({ key: "MCPM", name: "MCP lanes 2" });
+    await call(mcp, "create_ticket", { projectKey: "MCPM", title: "stuck", status: "todo" });
+    expect(await call(mcp, "remove_lane", { projectKey: "MCPM", laneId: "todo" })).toMatchObject({
+      isError: true,
+      text: "Lane Todo still has 1 ticket; move them first",
+    });
+    expect((await call(mcp, "rename_lane", { projectKey: "MCPM", laneId: "nope", name: "X" })).text).toContain("has no lane nope");
+    expect((await call(mcp, "move_lane", { projectKey: "MCPM", laneId: "todo", position: 0 })).isError).toBe(true);
+  });
+});
+
+describe("users and activity", () => {
+  it("lists users with id, name and kind", async () => {
+    const me = (await call(mcp, "whoami")).data;
+    const users = (await call(mcp, "list_users")).data;
+    expect(users).toContainEqual({ id: me.id, name: "Tester", kind: "human" });
+  });
+
+  it("lists activity concisely, newest first, with filters", async () => {
+    const api = createClient({ url, token });
+    await api.createProject({ key: "MCPN", name: "MCP activity" });
+    await api.createTicket({ projectKey: "MCPN", title: "one" });
+    await api.moveTicket("MCPN-1", { status: "done" });
+    const me = (await call(mcp, "whoami")).data;
+
+    const log = (await call(mcp, "list_activity", { projectKey: "MCPN" })).data;
+    expect(log.map((e: { action: string }) => e.action)).toEqual(["ticket.moved", "ticket.created", "project.created"]);
+    expect(log[0]).toMatchObject({ actorId: me.id, ticketKey: "MCPN-1", data: { from: "backlog", to: "done" } });
+    expect(log[0]).not.toHaveProperty("projectKey");
+    expect(log[2]).toMatchObject({ projectKey: "MCPN" });
+    expect((await call(mcp, "list_activity", { ticketKey: "MCPN-1", limit: 1 })).data).toHaveLength(1);
+  });
+});
+
+describe("parity with the client", () => {
+  const entries = Object.entries(OPERATIONS).flatMap(([op, { mcp }]) => (typeof mcp === "string" ? [[op, mcp] as const] : []));
+
+  it.each(entries)("%s is the tool %s", async (_op, tool) => {
+    const names = (await mcp.listTools()).tools.map((t) => t.name);
+    expect(names).toContain(tool);
+  });
+
+  it("has no tool that the table does not know", async () => {
+    const known = new Set(Object.values(OPERATIONS).flatMap(({ mcp }) => (typeof mcp === "string" ? [mcp] : [])));
+    const names = (await mcp.listTools()).tools.map((t) => t.name);
+    expect(names.filter((n) => !known.has(n))).toEqual([]);
   });
 });
 

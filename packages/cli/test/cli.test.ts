@@ -1,11 +1,13 @@
 import {
   ActivityEntrySchema,
   AgentCreatedSchema,
+  CommentSchema,
   ProjectSchema,
   TicketSchema,
   TokenInfoSchema,
   UserSchema,
 } from "@sumi/contract";
+import { OPERATIONS } from "@sumi/client";
 import { describe, expect, it, inject } from "vitest";
 import { z } from "zod";
 import { run } from "../src/cli";
@@ -200,6 +202,101 @@ describe("projects and tickets", () => {
     expect(none).toMatchObject({ code: 0, out: "No ticket available\n" });
     const noneJson = await sumi(["--json", "ticket", "claim", "CLM"], { SUMI_TOKEN: token });
     expect(JSON.parse(noneJson.out)).toEqual({ ticket: null });
+  });
+});
+
+describe("lanes", () => {
+  const laneIds = async (key: string) =>
+    (await sumiJson(ProjectSchema.shape.lanes, ["project", "lane", "list", key])).map((l) => l.id).join(" ");
+
+  it("lists a project's lanes, which are the statuses tickets can have", async () => {
+    await sumi(["project", "create", "LNE", "Lanes"]);
+    expect(await laneIds("LNE")).toBe("backlog todo in_progress in_review done");
+    expect((await sumi(["project", "lane", "list", "LNE"])).out.split("\n")[2]).toBe("in_progress   In progress");
+
+    const bad = await sumi(["ticket", "create", "LNE", "x", "--status", "nope"]);
+    expect(bad).toMatchObject({ code: 1 });
+    expect(bad.err).toContain("no lane nope");
+    expect((await sumi(["project", "lane", "list", "NOPE"])).err).toBe("error: Project NOPE not found\n");
+  });
+
+  it("adds, renames, moves and removes lanes", async () => {
+    await sumi(["project", "create", "LED", "Lane edits"]);
+    const L = ProjectSchema.shape.lanes;
+
+    const added = await sumiJson(L, ["project", "lane", "add", "LED", "QA / Staging"]);
+    expect(added.at(-1)).toEqual({ id: "qa_staging", name: "QA / Staging" });
+    expect(await laneIds("LED")).toBe("backlog todo in_progress in_review done qa_staging");
+    await sumi(["project", "lane", "add", "LED", "Icebox", "--position", "1"]);
+    expect(await laneIds("LED")).toBe("icebox backlog todo in_progress in_review done qa_staging");
+
+    const renamed = await sumiJson(L, ["project", "lane", "rename", "LED", "todo", "Ready"]);
+    expect(renamed.find((l) => l.id === "todo")?.name).toBe("Ready");
+
+    await sumi(["project", "lane", "move", "LED", "done", "2"]);
+    expect(await laneIds("LED")).toBe("icebox done backlog todo in_progress in_review qa_staging");
+    await sumi(["project", "lane", "move", "LED", "icebox", "99"]);
+    expect(await laneIds("LED")).toBe("done backlog todo in_progress in_review qa_staging icebox");
+
+    await sumi(["project", "lane", "remove", "LED", "icebox"]);
+    expect(await laneIds("LED")).toBe("done backlog todo in_progress in_review qa_staging");
+    const text = await sumi(["project", "lane", "remove", "LED", "qa_staging"]);
+    expect(text.out).toContain("backlog");
+    expect(text.out).not.toContain("QA");
+  });
+
+  it("explains why an edit is refused", async () => {
+    await sumi(["project", "create", "LRF", "Refused"]);
+    await sumi(["ticket", "create", "LRF", "stuck", "--status", "todo"]);
+    const removing = await sumi(["project", "lane", "remove", "LRF", "todo"]);
+    expect(removing).toMatchObject({ code: 1, err: "error: Lane Todo still has 1 ticket; move them first\n" });
+    expect((await sumi(["project", "lane", "rename", "LRF", "nope", "X"])).err).toContain("has no lane nope (lanes: backlog, todo");
+    expect((await sumi(["project", "lane", "add", "NOPE", "X"])).err).toBe("error: Project NOPE not found\n");
+    expect((await sumi(["project", "lane", "move", "LRF", "todo", "0"])).code).toBe(1);
+  });
+});
+
+describe("users", () => {
+  it("lists humans and agents with their ids", async () => {
+    const { user } = await sumiJson(AgentCreatedSchema, ["agent", "create", "Listed"]);
+    const users = await sumiJson(z.array(UserSchema), ["user", "list"]);
+    expect(users.map((u) => u.id)).toContain(user.id);
+    expect((await sumi(["user", "list"])).out).toContain(`Listed (agent)  ${user.id}`);
+  });
+});
+
+describe("parity with the client", () => {
+  const entries = Object.entries(OPERATIONS).flatMap(([op, { cli }]) => (typeof cli === "string" ? [[op, cli] as const] : []));
+
+  it.each(entries)("%s is the command `sumi %s`", async (_op, path) => {
+    const res = await sumi([...path.split(" "), "--help"]);
+    expect(res.code).toBe(0);
+    expect(res.out).toContain(`Usage: sumi ${path}`);
+  });
+});
+
+describe("comments", () => {
+  it("adds a comment and lists comments oldest first", async () => {
+    await sumi(["project", "create", "CMN", "Comments"]);
+    await sumi(["ticket", "create", "CMN", "talk"]);
+    const { user, token } = await sumiJson(AgentCreatedSchema, ["agent", "create", "Talker"]);
+
+    const added = await sumiJson(CommentSchema, ["ticket", "comment", "CMN-1", "First\n\nsecond line"]);
+    expect(added).toMatchObject({ ticketKey: "CMN-1", body: "First\n\nsecond line" });
+    expect(await sumi(["ticket", "comment", "CMN-1", "Second"], { SUMI_TOKEN: token })).toMatchObject({
+      code: 0,
+      out: "Commented on CMN-1\n",
+    });
+
+    const list = await sumiJson(z.array(CommentSchema), ["ticket", "comments", "CMN-1"]);
+    expect(list.map((c) => c.body)).toEqual(["First\n\nsecond line", "Second"]);
+    expect(list[1]?.authorId).toBe(user.id);
+    const text = await sumi(["ticket", "comments", "CMN-1"]);
+    expect(text.out).toContain(`${user.id}\nSecond`);
+
+    await sumi(["ticket", "create", "CMN", "quiet"]);
+    expect(await sumi(["ticket", "comments", "CMN-2"])).toMatchObject({ code: 0, out: "No comments\n" });
+    expect(await sumi(["ticket", "comment", "CMN-99", "x"])).toMatchObject({ code: 1, err: "error: Ticket CMN-99 not found\n" });
   });
 });
 

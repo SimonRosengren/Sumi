@@ -1,14 +1,16 @@
 import {
   PrioritySchema,
-  STATUSES,
   type CreateTicketInput,
+  type Lane,
   type TicketLinks,
   type UpdateTicketInput,
 } from "@sumi/contract";
-import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
+import { Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { ApiError, createClient, type Client } from "@sumi/client";
 import {
   formatActivityLine,
+  formatComment,
+  formatLaneLine,
   formatProjectLine,
   formatTicket,
   formatTicketLine,
@@ -87,6 +89,15 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
       print(user, () => formatUser(user));
     });
 
+  const user = program.command("user").description("Show users");
+  user
+    .command("list")
+    .description("List all users (humans and agents) with their ids, for --assignee")
+    .action(async () => {
+      const users = await api().listUsers();
+      print(users, () => users.map(formatUser).join("\n"));
+    });
+
   const agent = program.command("agent").description("Manage agents (humans only)");
   agent
     .command("create")
@@ -141,17 +152,64 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
       print(created, () => `Created ${formatProjectLine(created)}`);
     });
 
+  const lane = project
+    .command("lane")
+    .description("Manage a project's lanes (board columns). A ticket's status is the id of its lane.");
+  const printLanes = (lanes: Lane[]) => print(lanes, () => lanes.map(formatLaneLine).join("\n"));
+  lane
+    .command("list")
+    .description("List a project's lanes, left to right")
+    .argument("<project>")
+    .action(async (key: string) => {
+      const found = (await api().listProjects()).find((p) => p.key === key);
+      if (!found) throw new ApiError("not_found", `Project ${key} not found`);
+      printLanes(found.lanes);
+    });
+  lane
+    .command("add")
+    .description("Add a lane. Its id is made from the name. It goes last unless --position is given.")
+    .argument("<project>")
+    .argument("<name>")
+    .option("--position <n>", "1 is the leftmost lane", positiveInt)
+    .action(async (key: string, name: string, o: { position?: number }) =>
+      printLanes((await api().addLane(key, name, o.position)).lanes),
+    );
+  lane
+    .command("rename")
+    .description("Rename a lane. Its id, and so its tickets, stay as they are.")
+    .argument("<project>")
+    .argument("<lane>", "lane id, see `sumi project lane list <project>`")
+    .argument("<name>")
+    .action(async (key: string, laneId: string, name: string) =>
+      printLanes((await api().renameLane(key, laneId, name)).lanes),
+    );
+  lane
+    .command("move")
+    .description("Move a lane to another place on the board")
+    .argument("<project>")
+    .argument("<lane>", "lane id")
+    .argument("<position>", "1 is the leftmost lane", positiveInt)
+    .action(async (key: string, laneId: string, position: number) =>
+      printLanes((await api().moveLane(key, laneId, position)).lanes),
+    );
+  lane
+    .command("remove")
+    .description("Remove a lane. Refused while it still has tickets: move them first.")
+    .argument("<project>")
+    .argument("<lane>", "lane id")
+    .action(async (key: string, laneId: string) => printLanes((await api().removeLane(key, laneId)).lanes));
+
   const ticket = program.command("ticket").description("Manage tickets");
   ticket
     .command("list")
     .description("List tickets in a project, oldest first")
     .argument("<project>", "project key, e.g. SUMI")
-    .addOption(new Option("--status <status>").choices(STATUSES))
+    .option("--status <lane>", "lane id, see `sumi project lane list <project>`")
     .option("--assignee <userId>")
     .action(async (projectKey: string, o: { status?: string; assignee?: string }) => {
       const tickets = await api().listTickets({
         projectKey,
-        ...defined({ status: o.status as (typeof STATUSES)[number] | undefined, assigneeId: o.assignee }),
+        ...defined({ status: o.status, assigneeId: o.assignee }),
       });
       print(tickets, () => (tickets.length > 0 ? tickets.map(formatTicketLine).join("\n") : "No tickets"));
     });
@@ -165,11 +223,11 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
     });
   ticket
     .command("create")
-    .description("Create a ticket (status defaults to backlog)")
+    .description("Create a ticket (status defaults to the project's first lane)")
     .argument("<project>", "project key")
     .argument("<title>")
     .option("--description <text>", "markdown description")
-    .addOption(new Option("--status <status>").choices(STATUSES))
+    .option("--status <lane>", "lane id, see `sumi project lane list <project>`")
     .addOption(priorityOption())
     .option("--assignee <userId>")
     .option("--repo <owner/name>", "GitHub repository")
@@ -248,10 +306,10 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
     );
   ticket
     .command("move")
-    .description("Move a ticket to another status")
+    .description("Move a ticket to another status (a lane id, see `sumi project lane list <project>`)")
     .argument("<key>")
-    .addArgument(new Argument("<status>").choices(STATUSES))
-    .action(async (key: string, status: (typeof STATUSES)[number]) => {
+    .argument("<status>")
+    .action(async (key: string, status: string) => {
       const moved = await api().moveTicket(key, { status });
       print(moved, () => `Moved ${formatTicketLine(moved)}`);
     });
@@ -264,6 +322,24 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
     .action(async (projectKey: string) => {
       const claimed = await api().claimNext(projectKey);
       print({ ticket: claimed }, () => (claimed ? `Claimed ${formatTicketLine(claimed)}` : "No ticket available"));
+    });
+
+  ticket
+    .command("comment")
+    .description("Add a comment (markdown) to a ticket")
+    .argument("<key>")
+    .argument("<body>")
+    .action(async (key: string, body: string) => {
+      const comment = await api().addComment(key, { body });
+      print(comment, () => `Commented on ${key}`);
+    });
+  ticket
+    .command("comments")
+    .description("List the comments on a ticket, oldest first")
+    .argument("<key>")
+    .action(async (key: string) => {
+      const comments = await api().listComments(key);
+      print(comments, () => (comments.length > 0 ? comments.map(formatComment).join("\n\n") : "No comments"));
     });
 
   program

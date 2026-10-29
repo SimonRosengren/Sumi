@@ -12,3 +12,6 @@
 - [x] 6c. Drag and drop to move tickets, ticket detail panel
 - [x] 7. GitHub integration (webhooks move tickets)
 - [x] 8. Install story (quickstart, Docker image)
+- [x] 9. Create and edit tickets in the web UI
+- [x] 10. Comments on tickets
+- [x] 11. Editable lanes (add, rename, remove, reorder from the board)

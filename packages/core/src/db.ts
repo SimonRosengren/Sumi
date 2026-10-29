@@ -1,6 +1,7 @@
 import { MongoClient, MongoServerError, type ClientSession, type Collection, type Db } from "mongodb";
 import type {
   ActivityAction,
+  Lane,
   Priority,
   Status,
   TicketLinks,
@@ -19,6 +20,8 @@ export interface ProjectDoc {
   /** The project key, e.g. "SUMI". */
   _id: string;
   name: string;
+  /** Board columns in order. Absent on projects created before lanes were editable: they have the default lanes. */
+  lanes?: Lane[];
   /** Highest ticket number issued so far. Only ever incremented, so keys are never reused. */
   lastNumber: number;
   createdAt: Date;

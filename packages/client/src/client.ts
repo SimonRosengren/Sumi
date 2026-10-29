@@ -2,6 +2,7 @@ import {
   ActivityEntrySchema,
   AgentCreatedSchema,
   AuthConfigSchema,
+  CommentSchema,
   ErrorResponseSchema,
   ProjectSchema,
   TicketSchema,
@@ -11,12 +12,16 @@ import {
   type ActivityEntry,
   type AgentCreated,
   type AuthConfig,
+  type Comment,
+  type CreateCommentInput,
   type CreateProjectInput,
   type CreateTicketInput,
   type ListActivityInput,
   type ListTicketsInput,
   type MoveTicketInput,
+  type Lane,
   type Project,
+  type SetLanesInput,
   type Ticket,
   type TokenInfo,
   type UpdateTicketInput,
@@ -86,6 +91,18 @@ async function* readSse(body: ReadableStream<Uint8Array>, signal: AbortSignal): 
     signal.removeEventListener("abort", cancel);
     cancel();
   }
+}
+
+/** `lanes` with lane `id` at the 1-based `position` (clamped to the ends). The same list when it is already there. */
+export function placeLane<L extends { id: string }>(lanes: L[], id: string, position: number): L[] {
+  const from = lanes.findIndex((l) => l.id === id);
+  const lane = lanes[from];
+  if (!lane) return lanes;
+  const to = Math.min(Math.max(position, 1), lanes.length) - 1;
+  if (to === from) return lanes;
+  const rest = lanes.filter((l) => l.id !== id);
+  rest.splice(to, 0, lane);
+  return rest;
 }
 
 export function createClient({ url, token, fetch: fetchImpl = fetch }: ClientOptions) {
@@ -169,14 +186,57 @@ export function createClient({ url, token, fetch: fetchImpl = fetch }: ClientOpt
   const Activity = z.array(ActivityEntrySchema);
   const Claimed = z.object({ ticket: TicketSchema.nullable() });
 
+  const listProjects = (): Promise<Project[]> => request("GET", "/projects", Projects);
+  const setLanes = (projectKey: string, input: SetLanesInput): Promise<Project> =>
+    request("PUT", `/projects/${projectKey}/lanes`, ProjectSchema, { body: input });
+
+  /** Reads the project's lanes, applies `edit` and saves the result. Like the web board, the last save wins. */
+  async function editLanes(
+    projectKey: string,
+    edit: (lanes: Lane[]) => SetLanesInput["lanes"],
+  ): Promise<Project> {
+    const project = (await listProjects()).find((p) => p.key === projectKey);
+    if (!project) throw new ApiError("not_found", `Project ${projectKey} not found`);
+    return setLanes(projectKey, { lanes: edit(project.lanes) });
+  }
+
+  const laneNotFound = (projectKey: string, lanes: Lane[], id: string) =>
+    new ApiError("not_found", `Project ${projectKey} has no lane ${id} (lanes: ${lanes.map((l) => l.id).join(", ")})`);
+
   return {
     me: (): Promise<User> => request("GET", "/me", UserSchema),
     listUsers: (): Promise<User[]> => request("GET", "/users", z.array(UserSchema)),
     createAgent: (name: string): Promise<AgentCreated> =>
       request("POST", "/agents", AgentCreatedSchema, { body: { name } }),
-    listProjects: (): Promise<Project[]> => request("GET", "/projects", Projects),
+    listProjects,
     createProject: (input: CreateProjectInput): Promise<Project> =>
       request("POST", "/projects", ProjectSchema, { body: input }),
+    /** Replaces the project's lanes (ids keep existing lanes, no id adds one, left out ones are deleted). */
+    setLanes,
+    /** Adds a lane at the 1-based `position` (default: last). Resolves to the project with its new lanes. */
+    addLane: (projectKey: string, name: string, position?: number): Promise<Project> =>
+      editLanes(projectKey, (lanes) => {
+        const next: SetLanesInput["lanes"] = lanes.map(({ id, name }) => ({ id, name }));
+        next.splice(position === undefined ? next.length : Math.max(position - 1, 0), 0, { name });
+        return next;
+      }),
+    renameLane: (projectKey: string, laneId: string, name: string): Promise<Project> =>
+      editLanes(projectKey, (lanes) => {
+        if (!lanes.some((l) => l.id === laneId)) throw laneNotFound(projectKey, lanes, laneId);
+        return lanes.map((l) => (l.id === laneId ? { id: l.id, name } : { id: l.id, name: l.name }));
+      }),
+    /** Moves a lane to the 1-based `position`. */
+    moveLane: (projectKey: string, laneId: string, position: number): Promise<Project> =>
+      editLanes(projectKey, (lanes) => {
+        if (!lanes.some((l) => l.id === laneId)) throw laneNotFound(projectKey, lanes, laneId);
+        return placeLane(lanes, laneId, position).map(({ id, name }) => ({ id, name }));
+      }),
+    /** Removes a lane. The API refuses while it still holds tickets. */
+    removeLane: (projectKey: string, laneId: string): Promise<Project> =>
+      editLanes(projectKey, (lanes) => {
+        if (!lanes.some((l) => l.id === laneId)) throw laneNotFound(projectKey, lanes, laneId);
+        return lanes.filter((l) => l.id !== laneId).map(({ id, name }) => ({ id, name }));
+      }),
     listTickets: (input: ListTicketsInput): Promise<Ticket[]> =>
       request("GET", "/tickets", Tickets, { query: input }),
     getTicket: (key: string): Promise<Ticket> => request("GET", `/tickets/${key}`, TicketSchema),
@@ -188,6 +248,9 @@ export function createClient({ url, token, fetch: fetchImpl = fetch }: ClientOpt
       request("POST", `/tickets/${key}/move`, TicketSchema, { body: input }),
     claimNext: async (projectKey: string): Promise<Ticket | null> =>
       (await request("POST", "/tickets/claim-next", Claimed, { body: { projectKey } })).ticket,
+    listComments: (key: string): Promise<Comment[]> => request("GET", `/tickets/${key}/comments`, z.array(CommentSchema)),
+    addComment: (key: string, input: CreateCommentInput): Promise<Comment> =>
+      request("POST", `/tickets/${key}/comments`, CommentSchema, { body: input }),
     listActivity: (input: ListActivityInput): Promise<ActivityEntry[]> =>
       request("GET", "/activity", Activity, { query: input }),
     listTokens: (userId?: string): Promise<TokenInfo[]> =>

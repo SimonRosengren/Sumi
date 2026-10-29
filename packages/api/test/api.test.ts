@@ -1,6 +1,7 @@
 import {
   ActivityEntrySchema,
   AgentCreatedSchema,
+  CommentSchema,
   ErrorResponseSchema,
   ProjectSchema,
   TicketSchema,
@@ -129,6 +130,71 @@ describe("projects and tickets", () => {
 
     const second = await api().call("POST", "/tickets/claim-next", { token, body: { projectKey: "CLAIM" } });
     expect(second).toEqual({ status: 200, body: { ticket: null } });
+  });
+
+  it("edits a project's lanes, and refuses removing one that holds tickets", async () => {
+    const h = api();
+    await h.call("POST", "/projects", { body: { key: "LANE", name: "Lanes" } });
+    await h.call("POST", "/tickets", { body: { projectKey: "LANE", title: "x" } }); // first lane: backlog
+
+    const saved = await h.call("PUT", "/projects/LANE/lanes", {
+      body: { lanes: [{ id: "todo", name: "Ready" }, { id: "backlog", name: "Backlog" }, { name: "Shipping" }] },
+    });
+    expect(saved.status).toBe(200);
+    expect(ProjectSchema.parse(saved.body).lanes).toEqual([
+      { id: "todo", name: "Ready" },
+      { id: "backlog", name: "Backlog" },
+      { id: "shipping", name: "Shipping" },
+    ]);
+    expect(z.array(ProjectSchema).parse((await h.call("GET", "/projects")).body).find((p) => p.key === "LANE")?.lanes).toHaveLength(3);
+
+    const moved = await h.call("POST", "/tickets/LANE-1/move", { body: { status: "shipping" } });
+    expect(moved.body.status).toBe("shipping");
+    const log = await h.call("GET", "/activity?projectKey=LANE&limit=1");
+    expect(log.body[0]).toMatchObject({ action: "ticket.moved" });
+
+    const removing = await h.call("PUT", "/projects/LANE/lanes", { body: { lanes: [{ id: "todo", name: "Ready" }] } });
+    expect(removing.status).toBe(409);
+    expect((await h.call("POST", "/tickets/LANE-1/move", { body: { status: "done" } })).status).toBe(400);
+  });
+
+  it("validates lane edits", async () => {
+    const h = api();
+    expect((await h.call("PUT", "/projects/LANE/lanes", { body: { lanes: [] } })).status).toBe(400);
+    expect((await h.call("PUT", "/projects/nope/lanes", { body: { lanes: [{ name: "A" }] } })).status).toBe(400);
+    expect((await h.call("PUT", "/projects/NONE/lanes", { body: { lanes: [{ name: "A" }] } })).status).toBe(404);
+    expect((await h.call("PUT", "/projects/LANE/lanes", { body: { lanes: [{ name: "A" }] }, token: null })).status).toBe(401);
+  });
+
+  it("adds and lists comments, attributed to the caller", async () => {
+    await api().call("POST", "/projects", { body: { key: "CMT", name: "Comments" } });
+    await api().call("POST", "/tickets", { body: { projectKey: "CMT", title: "talk" } });
+    const { user, token } = AgentCreatedSchema.parse(
+      (await api().call("POST", "/agents", { body: { name: "Talker" } })).body,
+    );
+
+    const first = await api().call("POST", "/tickets/CMT-1/comments", { body: { body: "Hello" } });
+    expect(first.status).toBe(201);
+    expect(CommentSchema.parse(first.body)).toMatchObject({ ticketKey: "CMT-1", authorId: api().aliceId, body: "Hello" });
+    await api().call("POST", "/tickets/CMT-1/comments", { token, body: { body: "Hi **there**" } });
+
+    const list = await api().call("GET", "/tickets/CMT-1/comments");
+    expect(z.array(CommentSchema).parse(list.body).map((c) => [c.authorId, c.body])).toEqual([
+      [api().aliceId, "Hello"],
+      [user.id, "Hi **there**"],
+    ]);
+
+    const log = await api().call("GET", "/activity?ticketKey=CMT-1&limit=1");
+    expect(log.body[0]).toMatchObject({ action: "ticket.commented", actorId: user.id, data: { body: "Hi **there**" } });
+  });
+
+  it("rejects bad comments and unknown tickets", async () => {
+    const empty = await api().call("POST", "/tickets/CMT-1/comments", { body: { body: " " } });
+    expect(empty.status).toBe(400);
+    const missing = await api().call("POST", "/tickets/CMT-99/comments", { body: { body: "x" } });
+    expect(missing.status).toBe(404);
+    expect((await api().call("GET", "/tickets/CMT-99/comments")).status).toBe(404);
+    expect((await api().call("GET", "/tickets/CMT-1/comments", { token: null })).status).toBe(401);
   });
 
   it("limits activity with the limit query", async () => {

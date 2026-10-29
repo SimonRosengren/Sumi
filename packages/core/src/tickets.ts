@@ -13,13 +13,24 @@ import {
   type UpdateTicketInput,
 } from "@sumi/contract";
 import type { Filter, UpdateFilter } from "mongodb";
-import type { TicketDoc } from "./db";
-import { NotFoundError, ValidationError, parse } from "./errors";
-import { assertUserExists, recordActivity, type Ctx } from "./shared";
+import type { ProjectDoc, TicketDoc } from "./db";
+import { ConflictError, NotFoundError, ValidationError, parse } from "./errors";
+import { assertUserExists, lanesOf, recordActivity, type Ctx } from "./shared";
 
 function toTicket(doc: TicketDoc): Ticket {
   const { _id, ...rest } = doc;
   return { key: _id, ...rest };
+}
+
+/** Lanes that claiming moves tickets between. They are found by id, so renaming a lane does not break it. */
+export const CLAIM_FROM = "todo";
+export const CLAIM_TO = "in_progress";
+
+function assertLane(project: ProjectDoc, status: string): void {
+  const lanes = lanesOf(project);
+  if (!lanes.some((l) => l.id === status)) {
+    throw new ValidationError(`Project ${project._id} has no lane ${status} (lanes: ${lanes.map((l) => l.id).join(", ")})`);
+  }
 }
 
 export function createTicketService({ cols, tx }: Ctx) {
@@ -40,6 +51,9 @@ export function createTicketService({ cols, tx }: Ctx) {
           { returnDocument: "after", session },
         );
         if (!project) throw new NotFoundError(`Project ${data.projectKey} not found`);
+        const status = data.status ?? lanesOf(project)[0]?.id;
+        if (status === undefined) throw new ConflictError(`Project ${project._id} has no lanes`);
+        assertLane(project, status);
 
         const now = new Date();
         const doc: TicketDoc = {
@@ -48,7 +62,7 @@ export function createTicketService({ cols, tx }: Ctx) {
           number: project.lastNumber,
           title: data.title,
           description: data.description,
-          status: data.status,
+          status,
           ...(data.assigneeId !== undefined && { assigneeId: data.assigneeId }),
           ...(data.priority !== undefined && { priority: data.priority }),
           links: data.links,
@@ -128,6 +142,10 @@ export function createTicketService({ cols, tx }: Ctx) {
       const { status } = parse(MoveTicketInputSchema, input);
       return tx(async (session) => {
         await assertUserExists(cols, actorId, session, "Actor");
+        // A key is `<project key>-<number>`, so the project is known without reading the ticket.
+        const project = await cols.projects.findOne({ _id: key.slice(0, key.lastIndexOf("-")) }, { session });
+        if (!project) throw notFound(key);
+        assertLane(project, status);
         const before = await cols.tickets.findOneAndUpdate(
           { _id: key, status: { $ne: status } },
           { $set: { status, updatedAt: new Date() } },
@@ -151,21 +169,29 @@ export function createTicketService({ cols, tx }: Ctx) {
     },
 
     /**
-     * Atomically takes the oldest `todo` ticket that is unassigned (or already
+     * Atomically takes the oldest ticket in the `todo` lane that is unassigned (or already
      * assigned to the actor), assigns it to the actor and moves it to `in_progress`.
      * Returns null when nothing is available. Two actors can never get the same ticket.
+     * Fails when the project has deleted either lane.
      */
     async claimNext(actorId: string, input: ClaimNextInput): Promise<Ticket | null> {
       const { projectKey } = parse(ClaimNextInputSchema, input);
       return tx(async (session) => {
         await assertUserExists(cols, actorId, session, "Actor");
+        const project = await cols.projects.findOne({ _id: projectKey }, { session });
+        if (!project) throw new NotFoundError(`Project ${projectKey} not found`);
+        for (const id of [CLAIM_FROM, CLAIM_TO]) {
+          if (!lanesOf(project).some((l) => l.id === id)) {
+            throw new ConflictError(`Project ${projectKey} has no ${id} lane, so there is nothing to claim`);
+          }
+        }
         const doc = await cols.tickets.findOneAndUpdate(
           {
             projectKey,
-            status: "todo",
+            status: CLAIM_FROM,
             $or: [{ assigneeId: { $exists: false } }, { assigneeId: actorId }],
           },
-          { $set: { status: "in_progress", assigneeId: actorId, updatedAt: new Date() } },
+          { $set: { status: CLAIM_TO, assigneeId: actorId, updatedAt: new Date() } },
           { sort: { number: 1 }, returnDocument: "after", session },
         );
         if (!doc) return null;

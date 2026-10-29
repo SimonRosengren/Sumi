@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import {
   ClaimNextInputSchema,
   CreateAgentInputSchema,
+  CreateCommentInputSchema,
   CreateProjectInputSchema,
   CreateTicketInputSchema,
   CreateTokenInputSchema,
@@ -9,6 +10,8 @@ import {
   ListTicketsInputSchema,
   ListTokensInputSchema,
   MoveTicketInputSchema,
+  ProjectKeySchema,
+  SetLanesInputSchema,
   TicketKeySchema,
   TokenIdSchema,
   UpdateTicketInputSchema,
@@ -122,6 +125,13 @@ export function createApp(core: Core, options: AppOptions = {}) {
     return c.json(project, 201);
   });
 
+  app.put(
+    "/projects/:key/lanes",
+    validate("param", z.object({ key: ProjectKeySchema })),
+    validate("json", SetLanesInputSchema),
+    async (c) => c.json(await core.projects.setLanes(c.get("user").id, c.req.valid("param").key, c.req.valid("json"))),
+  );
+
   app.get("/tickets", validate("query", ListTicketsInputSchema), async (c) =>
     c.json(await core.tickets.list(c.req.valid("query"))),
   );
@@ -151,6 +161,15 @@ export function createApp(core: Core, options: AppOptions = {}) {
   app.post("/tickets/:key/move", validate("param", KeyParamSchema), validate("json", MoveTicketInputSchema), async (c) => {
     const { key } = c.req.valid("param");
     return c.json(await core.tickets.move(c.get("user").id, key, c.req.valid("json")));
+  });
+
+  app.get("/tickets/:key/comments", validate("param", KeyParamSchema), async (c) =>
+    c.json(await core.comments.list(c.req.valid("param").key)),
+  );
+
+  app.post("/tickets/:key/comments", validate("param", KeyParamSchema), validate("json", CreateCommentInputSchema), async (c) => {
+    const { key } = c.req.valid("param");
+    return c.json(await core.comments.add(c.get("user").id, key, c.req.valid("json")), 201);
   });
 
   app.get("/activity", validate("query", ListActivityInputSchema), async (c) =>

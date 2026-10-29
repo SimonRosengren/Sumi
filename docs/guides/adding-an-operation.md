@@ -7,6 +7,7 @@ An operation is something a client can do, e.g. "move ticket".
 3. Expose it as an HTTP route in `packages/api`, validating with the contract schemas.
 4. Add a method to the typed client in `packages/client`.
 5. Add a CLI command in `packages/cli` with `--json` output.
-6. Add an MCP tool in `packages/mcp` only if an agent needs it to do its work. Keep the description short and the response concise.
-7. Update the web app if humans need it.
-8. Update `docs/domain.md` if entities or invariants changed. Add an ADR if a decision was made.
+6. Add an MCP tool in `packages/mcp`. Keep the description short and the response concise.
+7. Register the client method in `OPERATIONS` (`packages/client/src/operations.ts`) with its CLI command and MCP tool. The only reason to leave a surface out is an operation the web UI does not have and an agent should not or need not do (say why with `{ not: "..." }`). Typecheck and the cli/mcp tests fail otherwise ([ADR 0029](../adr/0029-ui-features-exist-in-cli-and-mcp.md)).
+8. Update the web app if humans need it. Anything the web app can do must already have steps 5 to 7.
+9. Update `docs/domain.md` if entities or invariants changed. Add an ADR if a decision was made.

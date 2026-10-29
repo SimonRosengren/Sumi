@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  COMMENT_MAX_LENGTH,
+  LANE_NAME_MAX_LENGTH,
+  LaneIdSchema,
+  MAX_LANES,
   PrioritySchema,
   ProjectKeySchema,
   StatusSchema,
@@ -21,11 +25,24 @@ export const CreateProjectInputSchema = z.object({
 });
 export type CreateProjectInput = z.infer<typeof CreateProjectInputSchema>;
 
+/**
+ * The complete new list of lanes, in order. A lane with an `id` is an existing one (renamed and/or moved);
+ * one without is new. Existing lanes left out are deleted, which is refused while they hold tickets.
+ */
+export const SetLanesInputSchema = z.object({
+  lanes: z
+    .array(z.object({ id: LaneIdSchema.optional(), name: z.string().trim().min(1).max(LANE_NAME_MAX_LENGTH) }))
+    .min(1)
+    .max(MAX_LANES),
+});
+export type SetLanesInput = z.infer<typeof SetLanesInputSchema>;
+
 export const CreateTicketInputSchema = z.object({
   projectKey: ProjectKeySchema,
   title: z.string().trim().min(1).max(200),
   description: z.string().max(20_000).default(""),
-  status: StatusSchema.default("backlog"),
+  /** Defaults to the project's first lane. */
+  status: StatusSchema.optional(),
   assigneeId: z.string().optional(),
   priority: PrioritySchema.optional(),
   links: TicketLinksSchema.default({}),
@@ -44,6 +61,9 @@ export type UpdateTicketInput = z.infer<typeof UpdateTicketInputSchema>;
 
 export const MoveTicketInputSchema = z.object({ status: StatusSchema });
 export type MoveTicketInput = z.infer<typeof MoveTicketInputSchema>;
+
+export const CreateCommentInputSchema = z.object({ body: z.string().trim().min(1).max(COMMENT_MAX_LENGTH) });
+export type CreateCommentInput = z.infer<typeof CreateCommentInputSchema>;
 
 export const ListTicketsInputSchema = z.object({
   projectKey: ProjectKeySchema,

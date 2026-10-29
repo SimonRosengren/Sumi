@@ -1,6 +1,6 @@
 import type { Status, Ticket } from "@sumi/contract";
 import type { createTicketService } from "./tickets";
-import type { Ctx } from "./shared";
+import { lanesOf, type Ctx } from "./shared";
 
 /** The user that GitHub-driven changes are attributed to (AGENTS.md rule 5). Created on first use. */
 export const GITHUB_USER_ID = "system:github";
@@ -52,7 +52,8 @@ export function createGithubService({ cols }: Ctx, tickets: ReturnType<typeof cr
      * A ticket belongs to a PR when its links name the same repo and the PR number or branch,
      * or when its key appears in the branch name or title (and its links do not name another repo).
      * Matched tickets are moved (see `statusForPullRequest`) and get the repo, branch and PR number
-     * added to their links, so the board shows the PR.
+     * added to their links, so the board shows the PR. A ticket whose project has no lane with the target's
+     * id (it was deleted, ADR 0028) gets the links but stays where it is.
      */
     async syncPullRequest(event: PullRequestEvent): Promise<Ticket[]> {
       const target = statusForPullRequest(event);
@@ -73,11 +74,25 @@ export function createGithubService({ cols }: Ctx, tickets: ReturnType<typeof cr
       if (matches.length === 0) return [];
 
       const actorId = await ensureActor();
+      const projects = new Map<string, Set<string>>();
+      const hasLane = async (projectKey: string, id: string) => {
+        if (!projects.has(projectKey)) {
+          const project = await cols.projects.findOne({ _id: projectKey });
+          projects.set(projectKey, new Set(project ? lanesOf(project).map((l) => l.id) : []));
+        }
+        return projects.get(projectKey)?.has(id) ?? false;
+      };
+
       const updated: Ticket[] = [];
       for (const doc of matches) {
         const links = { ...doc.links, repo: event.repo, branch: event.branch, pr: event.number };
         if (!sameLinks(doc.links, links)) await tickets.update(actorId, doc._id, { links });
-        updated.push(await tickets.move(actorId, doc._id, { status: target }));
+        if (await hasLane(doc.projectKey, target)) {
+          updated.push(await tickets.move(actorId, doc._id, { status: target }));
+        } else {
+          const current = await tickets.get(doc._id);
+          if (current) updated.push(current);
+        }
       }
       return updated;
     },

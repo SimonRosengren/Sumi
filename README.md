@@ -8,7 +8,7 @@ If you want sprints, roadmaps and a hundred integrations, use Linear or Jira. If
 
 ## Why Sumi
 
-- **Agent-first.** The MCP server has eight tools, including `claim_next_ticket`, which atomically hands an agent the next `todo` ticket so two agents never take the same one. Every CLI command supports `--json`.
+- **Agent-first.** The MCP server has 15 tools, including `claim_next_ticket`, which atomically hands an agent the next `todo` ticket so two agents never take the same one. Every CLI command supports `--json`.
 - **Humans and agents are both users.** Each agent has its own user and token, so the history shows who did what. Revoke one agent without touching the others.
 - **A real Kanban board.** Drag and drop, ticket detail modal, light and dark themes, and live updates: when an agent moves a ticket, your board changes without a refresh.
 - **GitHub-native.** Sign in with GitHub, and a pull request webhook moves tickets for you (PR opened: In review, merged: Done) when the ticket key is in the branch name or title, such as `SUMI-12-fix-login`.
@@ -17,7 +17,7 @@ If you want sprints, roadmaps and a hundred integrations, use Linear or Jira. If
 
 ## What Sumi does not do (yet)
 
-Fixed workflow (backlog, todo, in progress, in review, done), one board per project, no sprints or cycles, labels, estimates, custom fields, attachments or notifications, and no ticket creation or editing of titles and descriptions in the web UI yet (use the CLI or an agent). See the [roadmap](docs/roadmap.md) and the open tickets. Sumi stays minimal on purpose, so features are added only when needed.
+One board per project (lanes start as backlog, todo, in progress, in review, done and can be edited in the web UI), no sprints or cycles, labels, estimates, custom fields, attachments or notifications. See the [roadmap](docs/roadmap.md) and the open tickets. Sumi stays minimal on purpose, so features are added only when needed.
 
 ## Quick start (Docker)
 
@@ -46,7 +46,7 @@ Or start everything (MongoDB, API and board) with one command: `pnpm dev`. Separ
 pnpm dev:web                 # http://localhost:5173, sign in by pasting your token
 ```
 
-On the board, drag a card to another column to move it, and click a card for its details and history.
+On the board, drag a card to another column to move it, and click a card for its details and history. "Edit lanes" lets you add, rename, remove and reorder the columns (agents can do the same: `sumi project lane --help`). Everything the board can do, the CLI and MCP can do too.
 
 Put the token in `.env` as `SUMI_TOKEN` (or export it), then use the CLI:
 
@@ -84,7 +84,7 @@ claude mcp add sumi -e SUMI_TOKEN=<agent token> -- pnpm --dir /path/to/sumi exec
 
 Against the Docker setup use `SUMI_URL=http://localhost:3000/api` (the API lives under `/api` there).
 
-Tools: `whoami`, `list_projects`, `list_tickets`, `get_ticket`, `create_ticket`, `update_ticket`, `move_ticket`, `claim_next_ticket`.
+Tools: `whoami`, `list_projects`, `list_tickets`, `get_ticket`, `create_ticket`, `update_ticket`, `move_ticket`, `add_comment`, `claim_next_ticket`, `list_users`, `list_activity`, `add_lane`, `rename_lane`, `move_lane`, `remove_lane`.
 
 ## Contributing (humans and agents)
 
