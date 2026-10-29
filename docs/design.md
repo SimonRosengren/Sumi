@@ -29,6 +29,12 @@ Light theme: light background, dark text, primary = accent 2. Dark theme: dark b
 
 Geist (sans) and Geist Mono, self-hosted through `@fontsource-variable/geist` and `@fontsource-variable/geist-mono` (SIL OFL). Use the mono font for keys, branches and code (`font-mono`). No webfont CDN.
 
+**Be bold with headings.** Geist looks best heavy, so headings use the top of the weight range: page and card titles `font-black` with `tracking-tight` (e.g. "Sign in", the empty state), column headers `font-extrabold`, ticket titles `font-bold`, small labels such as priority `font-semibold`. Body text stays regular. Do not use `font-medium` for anything that is meant to stand out.
+
+## Logo
+
+Temporary, in `AppWordmark.vue`: the Lucide `Origami` icon (stroke 2.5, primary color) and the word SUMI, uppercase, Geist Black 20px, letter spacing -7% (`tracking-[-0.07em]`), 8px gap (`gap-2`). Replace it there when a real logo exists.
+
 ## Components
 
 - UI primitives come from **shadcn-vue**. Add one with `pnpm dlx shadcn-vue@latest add <name>` run inside `packages/web` (it needs Node 24; Node 22.13 fails). They land in `src/components/ui/`, which is generated: do not hand-edit them or lint them. Restyle through the tokens instead.

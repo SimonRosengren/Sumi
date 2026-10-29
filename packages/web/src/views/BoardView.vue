@@ -73,7 +73,7 @@ onUnmounted(() => stopWatching());
         </div>
 
         <div v-else-if="board.projects.value.length === 0 && !board.error.value" class="mx-auto mt-24 max-w-sm text-center">
-          <h2 class="text-lg font-medium">No projects yet</h2>
+          <h2 class="text-2xl font-black tracking-tight">No projects yet</h2>
           <p class="text-muted-foreground mt-1 text-sm">
             Create one with <code class="font-mono text-xs">pnpm exec sumi project create SUMI "Sumi"</code>.
           </p>

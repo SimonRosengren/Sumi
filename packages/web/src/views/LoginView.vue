@@ -38,7 +38,7 @@ async function submit() {
       <div class="flex justify-center"><AppWordmark /></div>
       <Card>
         <CardHeader>
-          <CardTitle>Sign in</CardTitle>
+          <CardTitle class="text-2xl font-black tracking-tight">Sign in</CardTitle>
           <CardDescription>
             Paste an API token. Create one with <code class="font-mono text-xs">pnpm bootstrap &lt;name&gt;</code>.
           </CardDescription>

@@ -21,7 +21,7 @@ const PRIORITY_CLASS = {
       <span class="text-muted-foreground font-mono text-xs">{{ ticket.key }}</span>
       <UserAvatar v-if="assignee" :user="assignee" />
     </div>
-    <h3 class="mt-1.5 text-sm leading-snug font-medium text-pretty">{{ ticket.title }}</h3>
+    <h3 class="mt-1.5 text-sm leading-snug font-bold text-pretty">{{ ticket.title }}</h3>
     <div
       v-if="ticket.priority || ticket.links.pr || ticket.links.branch"
       class="text-muted-foreground mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs"
@@ -29,7 +29,7 @@ const PRIORITY_CLASS = {
       <span
         v-if="ticket.priority"
         :class="PRIORITY_CLASS[ticket.priority]"
-        class="rounded-sm px-1.5 py-0.5 font-medium capitalize"
+        class="rounded-sm px-1.5 py-0.5 font-semibold capitalize"
       >
         {{ ticket.priority }}
       </span>
