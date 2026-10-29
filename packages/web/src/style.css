@@ -6,65 +6,83 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Palette (the only hard-coded colors; everything else is derived from these):
- *   light E7E7D8   dark 1E1E1D   secondary AEAC95   accents F09235 ED762F EC642B
- * Accent text is always the dark color: white on these oranges is only ~2.9:1.
+ * Design tokens (ADR 0025, docs/design.md). The only place colors are written as hex.
+ *
+ * Surfaces are warm neutrals (paper and ink). One accent (orange) is reserved for primary
+ * actions, the active nav item, focus, links and selected states. `--accent` below is NOT
+ * the brand accent: it is shadcn's name for the neutral hover surface.
+ * Status and priority colors are deliberately muted and carry meaning, not decoration.
  */
 :root {
-  --sumi-light: #e7e7d8;
-  --sumi-dark: #1e1e1d;
-  --sumi-secondary: #aeac95;
-  --sumi-accent-1: #f09235;
-  --sumi-accent-2: #ed762f;
-  --sumi-accent-3: #ec642b;
-
+  color-scheme: light;
   --radius: 0.5rem;
 
-  --background: var(--sumi-light);
-  --foreground: var(--sumi-dark);
-  --card: color-mix(in oklab, var(--sumi-light) 55%, white);
-  --card-foreground: var(--sumi-dark);
-  --popover: color-mix(in oklab, var(--sumi-light) 55%, white);
-  --popover-foreground: var(--sumi-dark);
-  --primary: var(--sumi-accent-2);
-  --primary-foreground: var(--sumi-dark);
-  --secondary: color-mix(in oklab, var(--sumi-secondary) 35%, var(--sumi-light));
-  --secondary-foreground: var(--sumi-dark);
-  --muted: color-mix(in oklab, var(--sumi-secondary) 25%, var(--sumi-light));
-  --muted-foreground: color-mix(in oklab, var(--sumi-dark) 68%, var(--sumi-light));
-  --accent: color-mix(in oklab, var(--sumi-accent-1) 22%, var(--sumi-light));
-  --accent-foreground: var(--sumi-dark);
-  --destructive: color-mix(in oklab, var(--sumi-accent-3) 70%, var(--sumi-dark));
-  --border: color-mix(in oklab, var(--sumi-secondary) 60%, var(--sumi-light));
-  --input: color-mix(in oklab, var(--sumi-secondary) 75%, var(--sumi-light));
-  --ring: var(--sumi-accent-1);
+  --background: #f7f6f3;
+  --foreground: #1c1b19;
+  --card: #fdfcfb;
+  --card-foreground: #1c1b19;
+  --popover: #fdfcfb;
+  --popover-foreground: #1c1b19;
+  --muted: #efede8; /* quiet surface: column trays, skeletons */
+  --muted-foreground: #6b6860;
+  --secondary: #efede8;
+  --secondary-foreground: #1c1b19;
+  --accent: #ebe9e3; /* hover surface for ghost buttons and menu items */
+  --accent-foreground: #1c1b19;
+  --border: #e7e5df;
+  --input: #d9d6ce;
+
+  --primary: #ed762f;
+  --primary-foreground: #1c1b19; /* dark on orange: 5.9:1, white would be ~2.9:1 */
+  --primary-ink: #b5470c; /* the accent as text (links, active key): 5.0:1 on the page */
+  --ring: #ed762f;
+  --destructive: #b3402f;
+
+  --status-backlog: #a8a59c;
+  --status-todo: #8a877e;
+  --status-in-progress: #4f7cac;
+  --status-in-review: #7e67ae;
+  --status-done: #4e8b63;
+  --priority-medium: #8f5f0e;
 }
 
 .dark {
-  --background: var(--sumi-dark);
-  --foreground: var(--sumi-light);
-  --card: color-mix(in oklab, var(--sumi-light) 6%, var(--sumi-dark));
-  --card-foreground: var(--sumi-light);
-  --popover: color-mix(in oklab, var(--sumi-light) 8%, var(--sumi-dark));
-  --popover-foreground: var(--sumi-light);
-  --primary: var(--sumi-accent-1);
-  --primary-foreground: var(--sumi-dark);
-  --secondary: color-mix(in oklab, var(--sumi-secondary) 18%, var(--sumi-dark));
-  --secondary-foreground: var(--sumi-light);
-  --muted: color-mix(in oklab, var(--sumi-secondary) 12%, var(--sumi-dark));
-  --muted-foreground: var(--sumi-secondary);
-  --accent: color-mix(in oklab, var(--sumi-accent-1) 20%, var(--sumi-dark));
-  --accent-foreground: var(--sumi-light);
-  --destructive: var(--sumi-accent-3);
-  --border: color-mix(in oklab, var(--sumi-secondary) 22%, var(--sumi-dark));
-  --input: color-mix(in oklab, var(--sumi-secondary) 30%, var(--sumi-dark));
-  --ring: var(--sumi-accent-1);
+  color-scheme: dark;
+
+  --background: #151514;
+  --foreground: #edece7;
+  --card: #21211f;
+  --card-foreground: #edece7;
+  --popover: #262624;
+  --popover-foreground: #edece7;
+  --muted: #1b1b19;
+  --muted-foreground: #a09e96;
+  --secondary: #2a2a28;
+  --secondary-foreground: #edece7;
+  --accent: #2c2c2a;
+  --accent-foreground: #edece7;
+  --border: #31302d;
+  --input: #383734;
+
+  --primary: #f09235;
+  --primary-foreground: #1c1b19;
+  --primary-ink: #f09235;
+  --ring: #f09235;
+  --destructive: #e0705e;
+
+  --status-backlog: #6f6d66;
+  --status-todo: #8d8b83;
+  --status-in-progress: #7fa3cc;
+  --status-in-review: #a592cf;
+  --status-done: #78b28a;
+  --priority-medium: #d1a44e;
 }
 
 @theme inline {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, monospace;
 
+  /* One scale for the whole app: controls 6px, cards and trays 8px, dialogs 12px. */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -78,6 +96,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-ink: var(--primary-ink);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -89,20 +108,27 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Ticket status colors: neutral -> light orange -> deep orange as work progresses. */
-  --color-status-backlog: var(--sumi-secondary);
-  --color-status-todo: var(--sumi-secondary);
-  --color-status-in-progress: var(--sumi-accent-1);
-  --color-status-in-review: var(--sumi-accent-2);
-  --color-status-done: var(--sumi-accent-3);
+  /* Meaning, not decoration: neutral until work starts, then blue, violet, green. */
+  --color-status-backlog: var(--status-backlog);
+  --color-status-todo: var(--status-todo);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-in-review: var(--status-in-review);
+  --color-status-done: var(--status-done);
+  --color-priority-high: var(--destructive);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-low: var(--muted-foreground);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  ::selection {
+    @apply bg-primary/25;
+  }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans text-sm antialiased;
     font-feature-settings: "ss01", "cv11";
+    text-rendering: optimizeLegibility;
   }
 }

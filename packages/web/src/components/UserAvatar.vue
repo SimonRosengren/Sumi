@@ -11,12 +11,13 @@ defineProps<{ user: User }>();
 <template>
   <Tooltip>
     <TooltipTrigger as-child>
-      <Avatar class="size-6" :data-kind="user.kind">
+      <!-- Humans are round with initials, agents are square with a bot: both neutral, never accent colored. -->
+      <Avatar :class="user.kind === 'agent' ? 'size-5 rounded-md' : 'size-5'" :data-kind="user.kind">
         <AvatarFallback
-          :class="user.kind === 'agent' ? 'bg-accent text-accent-foreground' : 'bg-secondary text-secondary-foreground'"
-          class="text-[10px] font-medium"
+          :class="user.kind === 'agent' ? 'rounded-md border' : ''"
+          class="bg-secondary text-muted-foreground text-[9px] font-semibold"
         >
-          <Bot v-if="user.kind === 'agent'" class="size-3.5" aria-hidden="true" />
+          <Bot v-if="user.kind === 'agent'" class="size-3" aria-hidden="true" />
           <template v-else>{{ initials(user.name) }}</template>
         </AvatarFallback>
       </Avatar>

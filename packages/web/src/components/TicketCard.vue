@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Ticket, User } from "@sumi/contract";
 import { GitBranch, GitPullRequest } from "@lucide/vue";
+import PriorityIcon from "@/components/PriorityIcon.vue";
 import UserAvatar from "@/components/UserAvatar.vue";
 
 defineProps<{ ticket: Ticket; assignee?: User | undefined }>();
@@ -11,17 +12,11 @@ function dragStart(e: DragEvent, key: string) {
   e.dataTransfer.setData("text/plain", key);
   e.dataTransfer.effectAllowed = "move";
 }
-
-const PRIORITY_CLASS = {
-  high: "bg-primary/20 text-foreground",
-  medium: "bg-muted text-foreground",
-  low: "bg-muted text-muted-foreground",
-} as const;
 </script>
 
 <template>
   <article
-    class="bg-card group focus-visible:ring-ring/50 cursor-pointer rounded-lg border p-3 shadow-xs transition-colors outline-none hover:border-ring focus-visible:ring-3 active:cursor-grabbing"
+    class="bg-card hover:border-foreground/25 focus-visible:border-ring focus-visible:ring-ring/30 cursor-pointer rounded-md border p-3 transition-colors outline-none focus-visible:ring-2 active:cursor-grabbing"
     :data-key="ticket.key"
     tabindex="0"
     draggable="true"
@@ -30,27 +25,23 @@ const PRIORITY_CLASS = {
     @dragstart="dragStart($event, ticket.key)"
   >
     <div class="flex items-center justify-between gap-2">
-      <span class="text-muted-foreground font-mono text-xs">{{ ticket.key }}</span>
+      <span class="text-muted-foreground font-mono text-[11px] tracking-tight">{{ ticket.key }}</span>
       <UserAvatar v-if="assignee" :user="assignee" />
     </div>
-    <h3 class="mt-1.5 text-sm leading-snug font-bold text-pretty">{{ ticket.title }}</h3>
+    <h3 class="mt-1 text-[13px] leading-snug font-medium text-pretty">{{ ticket.title }}</h3>
     <div
       v-if="ticket.priority || ticket.links.pr || ticket.links.branch"
       class="text-muted-foreground mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs"
     >
-      <span
-        v-if="ticket.priority"
-        :class="PRIORITY_CLASS[ticket.priority]"
-        class="rounded-sm px-1.5 py-0.5 font-semibold capitalize"
-      >
-        {{ ticket.priority }}
+      <span v-if="ticket.priority" class="inline-flex items-center gap-1 capitalize">
+        <PriorityIcon :priority="ticket.priority" />{{ ticket.priority }}
       </span>
       <span v-if="ticket.links.pr" class="inline-flex items-center gap-1">
         <GitPullRequest class="size-3.5" aria-hidden="true" />#{{ ticket.links.pr }}
       </span>
       <span v-if="ticket.links.branch" class="inline-flex min-w-0 items-center gap-1">
         <GitBranch class="size-3.5 shrink-0" aria-hidden="true" />
-        <span class="truncate font-mono">{{ ticket.links.branch }}</span>
+        <span class="truncate font-mono text-[11px]">{{ ticket.links.branch }}</span>
       </span>
     </div>
   </article>

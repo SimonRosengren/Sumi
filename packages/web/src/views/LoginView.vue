@@ -40,15 +40,15 @@ async function submit() {
 <template>
   <main class="relative grid min-h-screen place-items-center p-4">
     <div class="absolute top-3 right-3"><ThemeToggle /></div>
-    <div class="w-full max-w-sm space-y-6">
+    <div class="w-full max-w-sm space-y-8">
       <div class="flex justify-center"><AppWordmark /></div>
       <Card>
         <CardHeader>
-          <CardTitle class="text-2xl font-black tracking-tight">Sign in</CardTitle>
+          <CardTitle class="text-lg font-semibold tracking-tight">Sign in</CardTitle>
           <CardDescription>
             <template v-if="github">Sign in with GitHub, or paste an API token.</template>
             <template v-else>
-              Paste an API token. Create one with <code class="font-mono text-xs">pnpm bootstrap &lt;name&gt;</code>.
+              Paste an API token. Create one with <code class="bg-muted rounded-sm px-1.5 py-0.5 font-mono text-xs">pnpm bootstrap &lt;name&gt;</code>.
             </template>
           </CardDescription>
         </CardHeader>
@@ -62,7 +62,7 @@ async function submit() {
           </template>
           <form class="space-y-4" @submit.prevent="submit">
             <div class="space-y-2">
-              <Label for="token">API token</Label>
+              <Label for="token" class="text-[13px]">API token</Label>
               <Input id="token" v-model="token" type="password" autocomplete="off" placeholder="sumi_…" class="font-mono" />
             </div>
             <Button type="submit" class="w-full" :disabled="busy || !token.trim()">
