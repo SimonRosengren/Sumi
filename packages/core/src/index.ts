@@ -3,6 +3,7 @@ import { createActivityService } from "./activity";
 import { collections, createTx, ensureIndexes } from "./db";
 import { createProjectService } from "./projects";
 import { createTicketService } from "./tickets";
+import { createTokenService } from "./tokens";
 import { createUserService } from "./users";
 
 export * from "./errors";
@@ -10,7 +11,8 @@ export * from "./errors";
 export interface CoreOptions {
   /** MongoDB connection string. Must point at a replica set (transactions, change streams). */
   uri: string;
-  dbName: string;
+  /** Defaults to the database named in the URI. */
+  dbName?: string;
 }
 
 export async function createCore({ uri, dbName }: CoreOptions) {
@@ -25,6 +27,7 @@ export async function createCore({ uri, dbName }: CoreOptions) {
     users: createUserService(ctx),
     projects: createProjectService(ctx),
     tickets: createTicketService(ctx),
+    tokens: createTokenService(ctx),
     activity: createActivityService(ctx),
     /** Drops the whole database. For tests only. */
     dropDatabase: () => db.dropDatabase(),

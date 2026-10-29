@@ -10,7 +10,9 @@
     "dev:db": "docker compose up -d mongo",
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "test": "pnpm -r --if-present run test"
+    "test": "pnpm -r --if-present run test",
+    "dev:api": "pnpm --filter @sumi/api dev",
+    "bootstrap": "pnpm --filter @sumi/api bootstrap"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

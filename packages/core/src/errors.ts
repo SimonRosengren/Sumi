@@ -1,6 +1,6 @@
 import type { ZodType } from "zod";
 
-export type ErrorCode = "not_found" | "conflict" | "validation";
+export type ErrorCode = "forbidden" | "not_found" | "conflict" | "validation";
 
 /** Base class so the API can map any core failure to an HTTP status. */
 export class SumiError extends Error {
@@ -10,6 +10,12 @@ export class SumiError extends Error {
   ) {
     super(message);
     this.name = new.target.name;
+  }
+}
+
+export class ForbiddenError extends SumiError {
+  constructor(message: string) {
+    super("forbidden", message);
   }
 }
 

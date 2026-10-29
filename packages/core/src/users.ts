@@ -1,8 +1,16 @@
-import { CreateUserInputSchema, type CreateUserInput, type User } from "@sumi/contract";
+import {
+  CreateAgentInputSchema,
+  CreateUserInputSchema,
+  type AgentCreated,
+  type CreateAgentInput,
+  type CreateUserInput,
+  type User,
+} from "@sumi/contract";
 import type { UserDoc } from "./db";
 import { isDuplicateKey } from "./db";
 import { ConflictError, parse } from "./errors";
-import type { Ctx } from "./shared";
+import { assertHuman, recordActivity, type Ctx } from "./shared";
+import { issueToken } from "./tokens";
 
 function toUser(doc: UserDoc): User {
   const { _id, ...rest } = doc;
@@ -13,7 +21,7 @@ function toUser(doc: UserDoc): User {
  * Users are created by the system (sign-in, agent token setup), not by another
  * actor, so creating one is the only mutation that is not written to the activity log.
  */
-export function createUserService({ cols }: Ctx) {
+export function createUserService({ cols, tx }: Ctx) {
   return {
     async create(input: CreateUserInput): Promise<User> {
       const data = parse(CreateUserInputSchema, input);
@@ -31,6 +39,23 @@ export function createUserService({ cols }: Ctx) {
         throw err;
       }
       return toUser(doc);
+    },
+
+    /** A human creates an agent user together with its first token. */
+    async createAgent(actorId: string, input: CreateAgentInput): Promise<AgentCreated> {
+      const data = parse(CreateAgentInputSchema, input);
+      return tx(async (session) => {
+        await assertHuman(cols, actorId, session);
+        const doc: UserDoc = { _id: crypto.randomUUID(), kind: "agent", name: data.name, createdAt: new Date() };
+        await cols.users.insertOne(doc, { session });
+        const token = await issueToken(cols, session, doc._id);
+        await recordActivity(cols, session, {
+          actorId,
+          action: "agent.created",
+          data: { agentId: doc._id, name: data.name },
+        });
+        return { user: toUser(doc), token };
+      });
     },
 
     async get(id: string): Promise<User | null> {

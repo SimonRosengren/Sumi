@@ -3,6 +3,7 @@ import {
   PrioritySchema,
   ProjectKeySchema,
   StatusSchema,
+  TicketKeySchema,
   TicketLinksSchema,
   UserKindSchema,
 } from "./domain";
@@ -50,6 +51,17 @@ export const ListTicketsInputSchema = z.object({
   assigneeId: z.string().optional(),
 });
 export type ListTicketsInput = z.infer<typeof ListTicketsInputSchema>;
+
+export const ListActivityInputSchema = z.object({
+  projectKey: ProjectKeySchema.optional(),
+  ticketKey: TicketKeySchema.optional(),
+  // Coerced because it arrives as a query string over HTTP.
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+export type ListActivityInput = z.input<typeof ListActivityInputSchema>;
+
+export const CreateAgentInputSchema = z.object({ name: z.string().trim().min(1).max(100) });
+export type CreateAgentInput = z.infer<typeof CreateAgentInputSchema>;
 
 export const ClaimNextInputSchema = z.object({ projectKey: ProjectKeySchema });
 export type ClaimNextInput = z.infer<typeof ClaimNextInputSchema>;

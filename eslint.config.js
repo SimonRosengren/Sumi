@@ -35,6 +35,13 @@ export default tseslint.config(
     }),
   },
   {
+    // api wraps core; only core talks to the database.
+    files: ["packages/api/**/*.ts"],
+    rules: forbid(["mongodb"], "Only core may use the database driver (AGENTS.md rule 1).", {
+      byPath: ["core"],
+    }),
+  },
+  {
     // contract is shared zod schemas only.
     files: ["packages/contract/**/*.ts"],
     rules: forbid(

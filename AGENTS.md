@@ -24,6 +24,7 @@ TypeScript everywhere, pnpm monorepo, MongoDB, Hono HTTP API, Vue 3 (Vite) web, 
 ```sh
 pnpm install
 pnpm dev:db       # local MongoDB (replica set) via docker compose
+pnpm dev:api      # API on :3000 (run `pnpm bootstrap <name>` once for a token)
 pnpm lint
 pnpm typecheck
 pnpm test         # needs `pnpm dev:db` running (core tests use a real MongoDB)

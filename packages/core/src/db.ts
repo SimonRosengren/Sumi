@@ -39,11 +39,18 @@ export interface TicketDoc {
   updatedAt: Date;
 }
 
+export interface TokenDoc {
+  /** SHA-256 (hex) of the token. The plaintext is never stored. */
+  _id: string;
+  userId: string;
+  createdAt: Date;
+}
+
 export interface ActivityDoc {
   _id: string;
   actorId: string;
   action: ActivityAction;
-  projectKey: string;
+  projectKey?: string;
   ticketKey?: string;
   data: Record<string, unknown>;
   createdAt: Date;
@@ -53,6 +60,7 @@ export interface Collections {
   users: Collection<UserDoc>;
   projects: Collection<ProjectDoc>;
   tickets: Collection<TicketDoc>;
+  tokens: Collection<TokenDoc>;
   activity: Collection<ActivityDoc>;
 }
 
@@ -61,6 +69,7 @@ export function collections(db: Db): Collections {
     users: db.collection<UserDoc>("users"),
     projects: db.collection<ProjectDoc>("projects"),
     tickets: db.collection<TicketDoc>("tickets"),
+    tokens: db.collection<TokenDoc>("tokens"),
     activity: db.collection<ActivityDoc>("activity"),
   };
 }

@@ -1,7 +1,7 @@
 import type { ClientSession } from "mongodb";
 import type { ActivityAction } from "@sumi/contract";
 import type { Collections, Tx } from "./db";
-import { NotFoundError } from "./errors";
+import { ForbiddenError, NotFoundError } from "./errors";
 
 export interface Ctx {
   cols: Collections;
@@ -25,7 +25,7 @@ export async function recordActivity(
   entry: {
     actorId: string;
     action: ActivityAction;
-    projectKey: string;
+    projectKey?: string;
     ticketKey?: string;
     data?: Record<string, unknown>;
   },
@@ -35,11 +35,18 @@ export async function recordActivity(
       _id: crypto.randomUUID(),
       actorId: entry.actorId,
       action: entry.action,
-      projectKey: entry.projectKey,
+      ...(entry.projectKey !== undefined && { projectKey: entry.projectKey }),
       ...(entry.ticketKey !== undefined && { ticketKey: entry.ticketKey }),
       data: entry.data ?? {},
       createdAt: new Date(),
     },
     { session },
   );
+}
+
+/** Throws unless the actor exists and is a human. Used for credential management. */
+export async function assertHuman(cols: Collections, id: string, session: ClientSession): Promise<void> {
+  const actor = await cols.users.findOne({ _id: id }, { session });
+  if (!actor) throw new NotFoundError(`Actor ${id} not found`);
+  if (actor.kind !== "human") throw new ForbiddenError("Only humans can manage agents and tokens");
 }

@@ -16,6 +16,14 @@ Status: early development. See [docs/roadmap.md](docs/roadmap.md).
 pnpm install
 pnpm dev:db        # starts MongoDB (single-node replica set) via docker compose
 cp .env.example .env
+pnpm bootstrap <your-name>   # creates the first user and prints an API token (shown once)
+pnpm dev:api                 # API on http://localhost:3000
+```
+
+Then call it with the token:
+
+```sh
+curl -H "authorization: Bearer <token>" localhost:3000/me
 ```
 
 ## Contributing (humans and agents)
