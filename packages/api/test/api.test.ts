@@ -265,8 +265,8 @@ describe("GET /auth/config", () => {
     expect(res).toEqual({ status: 200, body: { github: false } });
   });
 
-  it("does not expose the GitHub routes when it is off", async () => {
-    const res = await api().app.request("/auth/github");
-    expect(res.status).toBe(401);
+  it("does not expose the GitHub routes when they are off", async () => {
+    expect((await api().app.request("/auth/github")).status).toBe(401);
+    expect((await api().app.request("/webhooks/github", { method: "POST", body: "{}" })).status).toBe(401);
   });
 });

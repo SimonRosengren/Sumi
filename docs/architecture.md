@@ -52,6 +52,7 @@ contract  <-  client  <-  cli | mcp | web
 ## Data flow
 
 Client (CLI / MCP / web) -> HTTP API (auth, validation via contract) -> core service -> MongoDB.
+GitHub: a signed webhook (`POST /webhooks/github`) -> `core.github.syncPullRequest` -> tickets move ([ADR 0022](adr/0022-github-webhook-moves-tickets.md)).
 Live updates: every mutation writes an activity entry -> Mongo change stream (`core.activity.subscribe`) -> `GET /events` (SSE) -> `client.watch` -> web reloads the board. Details in [ADR 0019](adr/0019-sse-live-updates.md).
 
 ## Auth

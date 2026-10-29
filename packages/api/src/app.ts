@@ -23,6 +23,7 @@ import { HTTPException } from "hono/http-exception";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { githubAuth, type GithubOptions } from "./github-auth";
+import { githubWebhook, type GithubWebhookOptions } from "./github-webhook";
 
 type Env = { Variables: { user: User } };
 
@@ -56,6 +57,8 @@ const KeyParamSchema = z.object({ key: TicketKeySchema });
 export interface AppOptions {
   /** Enables "Sign in with GitHub". Without it, humans sign in with an API token only. */
   github?: GithubOptions;
+  /** Enables `POST /webhooks/github`, which moves tickets when pull requests change. */
+  githubWebhook?: GithubWebhookOptions;
 }
 
 export function createApp(core: Core, options: AppOptions = {}) {
@@ -75,6 +78,8 @@ export function createApp(core: Core, options: AppOptions = {}) {
   // Sign-in routes are public: nobody has a token yet.
   app.get("/auth/config", (c) => c.json({ github: options.github !== undefined } satisfies AuthConfig));
   if (options.github) app.route("/", githubAuth(core, options.github));
+  // The webhook is authenticated by GitHub's signature, not a token.
+  if (options.githubWebhook) app.route("/", githubWebhook(core, options.githubWebhook));
 
   // Everything below requires `Authorization: Bearer <token>`.
   app.use("*", async (c, next) => {

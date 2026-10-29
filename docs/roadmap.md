@@ -10,5 +10,5 @@
 - [x] 6a. Vue Kanban board, read-only, token sign-in
 - [x] 6b. Board updates live
 - [x] 6c. Drag and drop to move tickets, ticket detail panel
-- [ ] 7. GitHub integration (webhooks move tickets)
+- [x] 7. GitHub integration (webhooks move tickets)
 - [ ] 8. Install story (quickstart, Docker image)

@@ -12,6 +12,7 @@ export const config = {
   githubClientId: process.env.GITHUB_CLIENT_ID,
   githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
   githubAllowedLogins: list(process.env.GITHUB_ALLOWED_LOGINS),
+  githubWebhookSecret: process.env.GITHUB_WEBHOOK_SECRET || undefined,
 };
 
 /** GitHub sign-in is on when a client id and secret are set. It then requires an explicit allow-list. */

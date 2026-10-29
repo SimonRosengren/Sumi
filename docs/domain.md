@@ -25,4 +25,4 @@ Any status can move to any other (it is a Kanban board). Moving a ticket to its 
 - Only humans can create agents and create, list and revoke tokens. Agents cannot.
 - A failed create does not consume a ticket number.
 - "Claim next" is atomic: two agents can never claim the same ticket. It takes the lowest-numbered `todo` ticket that is unassigned or already assigned to the claimer, assigns it to them and moves it to `in_progress`. Priority does not affect order yet.
-- Tickets can reference GitHub repos, branches and PRs so GitHub signals can move them later.
+- Tickets can reference GitHub repos, branches and PRs. A GitHub pull request webhook moves matching tickets (`in_review` on open, `done` on merge) as the built-in agent user `GitHub`, and adds the PR to their links ([ADR 0022](adr/0022-github-webhook-moves-tickets.md)).
