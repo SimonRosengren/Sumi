@@ -16,7 +16,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@sumi/cli": "workspace:*",
     "eslint": "^10.13.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1"
   }

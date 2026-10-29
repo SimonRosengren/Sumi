@@ -12,7 +12,7 @@ packages/
   web/       Vue 3 Kanban board, HTTP client of the API
 ```
 
-Packages are created as their milestone starts; see [roadmap.md](roadmap.md). `contract`, `core` and `api` exist today.
+Packages are created as their milestone starts; see [roadmap.md](roadmap.md). `contract`, `core`, `api` and `cli` exist today.
 
 Internal packages export TypeScript source and have no build step ([ADR 0011](adr/0011-internal-packages-export-typescript-source.md)).
 
@@ -22,7 +22,11 @@ Internal packages export TypeScript source and have no build step ([ADR 0011](ad
 
 ## api layout
 
-`createApp(core)` in `packages/api/src/app.ts` returns the Hono app; the route list lives there and is exercised in `packages/api/test/api.test.ts`. `src/server.ts` serves it, `src/bootstrap.ts` creates the first human and token. Routes validate input with the contract schemas, take the acting user from the bearer token and pass it to core. Every error response is `{ error: { code, message } }` ([ErrorResponseSchema](../packages/contract/src/responses.ts)); `SumiError` codes map to 400/403/404/409, anything else is a 500 with a generic message. `GET /health` is the only unauthenticated route.
+`createApp(core)` in `packages/api/src/app.ts` returns the Hono app; the route list lives there and is exercised in `packages/api/test/api.test.ts`. `src/server.ts` serves it, `src/bootstrap.ts` creates the first human and token, `src/test-server.ts` starts it on a throwaway database for black-box client tests. Routes validate input with the contract schemas, take the acting user from the bearer token and pass it to core. Every error response is `{ error: { code, message } }` ([ErrorResponseSchema](../packages/contract/src/responses.ts)); `SumiError` codes map to 400/403/404/409, anything else is a 500 with a generic message. `GET /health` is the only unauthenticated route.
+
+## cli layout
+
+`run(argv, { env, stdout, stderr })` in `packages/cli/src/cli.ts` defines every command and returns the exit code; `main.ts` is the thin entry (`pnpm exec sumi`). `client.ts` is the typed HTTP client (responses parsed with contract schemas), `format.ts` the text output. Design choices are in [ADR 0015](adr/0015-cli-design.md). Run `pnpm exec sumi --help` for the command list.
 
 ## Dependency rules
 

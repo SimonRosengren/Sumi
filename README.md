@@ -20,10 +20,14 @@ pnpm bootstrap <your-name>   # creates the first user and prints an API token (s
 pnpm dev:api                 # API on http://localhost:3000
 ```
 
-Then call it with the token:
+Put the token in `.env` as `SUMI_TOKEN` (or export it), then use the CLI:
 
 ```sh
-curl -H "authorization: Bearer <token>" localhost:3000/me
+pnpm exec sumi whoami
+pnpm exec sumi project create SUMI "Sumi"
+pnpm exec sumi ticket create SUMI "My first ticket" --status todo
+pnpm exec sumi ticket list SUMI
+pnpm exec sumi --help        # all commands; add --json for machine-readable output
 ```
 
 ## Contributing (humans and agents)

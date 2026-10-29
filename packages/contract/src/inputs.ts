@@ -58,7 +58,8 @@ export const ListActivityInputSchema = z.object({
   // Coerced because it arrives as a query string over HTTP.
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
-export type ListActivityInput = z.input<typeof ListActivityInputSchema>;
+// z.input would type the coerced `limit` as unknown, so state it explicitly.
+export type ListActivityInput = Omit<z.input<typeof ListActivityInputSchema>, "limit"> & { limit?: number };
 
 export const CreateAgentInputSchema = z.object({ name: z.string().trim().min(1).max(100) });
 export type CreateAgentInput = z.infer<typeof CreateAgentInputSchema>;
