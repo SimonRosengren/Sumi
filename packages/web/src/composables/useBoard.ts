@@ -1,6 +1,6 @@
 import type { Client } from "@sumi/client";
-import type { Project, Ticket, User } from "@sumi/contract";
-import { computed, ref } from "vue";
+import type { ActivityEntry, Project, Status, Ticket, UpdateTicketInput, User } from "@sumi/contract";
+import { computed, ref, watch as watchRef } from "vue";
 import { groupByStatus, indexUsers } from "@/lib/board";
 
 const PROJECT_KEY = "sumi.project";
@@ -89,7 +89,49 @@ export function useBoard(client: Client) {
     };
   }
 
+  /** Moves a ticket to another column. Shows the move at once; the server's answer replaces it. */
+  async function move(key: string, status: Status) {
+    if (tickets.value.find((t) => t.key === key)?.status === status) return;
+    tickets.value = tickets.value.map((t) => (t.key === key ? { ...t, status } : t));
+    await guard(async () => {
+      try {
+        replace(await client.moveTicket(key, { status }));
+      } catch (err) {
+        await loadTickets().catch(() => undefined); // back to what the server has
+        throw err;
+      }
+    });
+  }
+
+  async function update(key: string, input: UpdateTicketInput) {
+    await guard(async () => replace(await client.updateTicket(key, input)));
+  }
+
+  function replace(ticket: Ticket) {
+    tickets.value = tickets.value.map((t) => (t.key === ticket.key ? ticket : t));
+  }
+
+  // The ticket whose detail panel is open, and its history.
+  const openKey = ref<string | null>(null);
+  const openTicket = computed(() => tickets.value.find((t) => t.key === openKey.value) ?? null);
+  const activity = ref<ActivityEntry[]>([]);
+  watchRef(
+    () => (openTicket.value ? `${openTicket.value.key}@${openTicket.value.updatedAt.getTime()}` : null),
+    async (id) => {
+      if (!id) {
+        activity.value = [];
+        return;
+      }
+      const key = openTicket.value?.key;
+      if (!key) return;
+      const list = await client.listActivity({ ticketKey: key }).catch(() => null);
+      if (list && openKey.value === key) activity.value = list;
+    },
+    { immediate: true },
+  );
+
   async function select(key: string) {
+    openKey.value = null;
     selected.value = key;
     localStorage.setItem(PROJECT_KEY, key);
     loading.value = true;
@@ -97,5 +139,9 @@ export function useBoard(client: Client) {
     loading.value = false;
   }
 
-  return { projects, users, usersById, tickets, columns, selected, loading, error, load, select, watch };
+  return {
+    projects, users, usersById, tickets, columns, selected, loading, error,
+    openKey, openTicket, activity,
+    load, select, move, update, watch,
+  };
 }

@@ -36,6 +36,8 @@ export default tseslint.config(
     // Lets .vue files use TypeScript in <script lang="ts">.
     files: ["**/*.vue"],
     languageOptions: { parserOptions: { parser: tseslint.parser } },
+    // TypeScript already reports undefined names; this rule does not know DOM types like DragEvent.
+    rules: { "no-undef": "off" },
   },
   {
     // Clients reach everything through the HTTP API, never core or the database.

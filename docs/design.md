@@ -35,6 +35,11 @@ Geist (sans) and Geist Mono, self-hosted through `@fontsource-variable/geist` an
 
 Temporary, in `AppWordmark.vue`: the Lucide `Origami` icon (stroke 2.5, primary color) and the word SUMI, uppercase, Geist Black 20px, letter spacing -7% (`tracking-[-0.07em]`), 8px gap (`gap-2`). Replace it there when a real logo exists.
 
+## Interaction
+
+- Cards are draggable between columns; the target column gets an accent ring while a card is over it. Cards are also keyboard-focusable and open the detail panel with Enter or click.
+- The ticket detail panel is a right-hand sheet (full width on narrow screens) with native `<select>` fields styled like inputs. Anything draggable also needs a non-drag way to do it (the status select), because touch screens cannot drag.
+
 ## Components
 
 - UI primitives come from **shadcn-vue**. Add one with `pnpm dlx shadcn-vue@latest add <name>` run inside `packages/web` (it needs Node 24; Node 22.13 fails). They land in `src/components/ui/`, which is generated: do not hand-edit them or lint them. Restyle through the tokens instead.

@@ -5,6 +5,7 @@ import { STATUSES } from "@sumi/contract";
 import { LogOut, RefreshCw } from "@lucide/vue";
 import { onMounted, onUnmounted } from "vue";
 import BoardColumn from "@/components/BoardColumn.vue";
+import TicketDetail from "@/components/TicketDetail.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import UserAvatar from "@/components/UserAvatar.vue";
 import AppWordmark from "@/components/AppWordmark.vue";
@@ -86,9 +87,21 @@ onUnmounted(() => stopWatching());
             :status="s"
             :tickets="board.columns.value[s]"
             :users-by-id="board.usersById.value"
+            @open="board.openKey.value = $event"
+            @move="board.move"
           />
         </div>
       </main>
+
+      <TicketDetail
+        :ticket="board.openTicket.value"
+        :users="board.users.value"
+        :users-by-id="board.usersById.value"
+        :activity="board.activity.value"
+        @close="board.openKey.value = null"
+        @move="(status) => board.openKey.value && board.move(board.openKey.value, status)"
+        @update="(input) => board.openKey.value && board.update(board.openKey.value, input)"
+      />
     </div>
   </TooltipProvider>
 </template>

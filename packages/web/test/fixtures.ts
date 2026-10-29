@@ -41,6 +41,15 @@ export function fakeClient(overrides: Partial<Record<keyof Client, unknown>> = {
     listProjects: vi.fn(async () => projects),
     listUsers: vi.fn(async () => [alice, bot]),
     listTickets: vi.fn(async ({ projectKey }: { projectKey: string }) => tickets[projectKey] ?? []),
+    moveTicket: vi.fn(async (key: string, { status }: { status: string }) => {
+      const t = Object.values(tickets).flat().find((x) => x.key === key);
+      return { ...t, status, updatedAt: new Date() };
+    }),
+    updateTicket: vi.fn(async (key: string, input: object) => {
+      const t = Object.values(tickets).flat().find((x) => x.key === key);
+      return { ...t, ...input, updatedAt: new Date() };
+    }),
+    listActivity: vi.fn(async () => []),
     // Never connects. Tests drive it through the options passed to the first call.
     watch: vi.fn(({ signal }: { signal: AbortSignal }) => new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()))),
     ...overrides,

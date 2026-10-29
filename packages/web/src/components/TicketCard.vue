@@ -4,6 +4,13 @@ import { GitBranch, GitPullRequest } from "@lucide/vue";
 import UserAvatar from "@/components/UserAvatar.vue";
 
 defineProps<{ ticket: Ticket; assignee?: User | undefined }>();
+defineEmits<{ open: [] }>();
+
+function dragStart(e: DragEvent, key: string) {
+  if (!e.dataTransfer) return;
+  e.dataTransfer.setData("text/plain", key);
+  e.dataTransfer.effectAllowed = "move";
+}
 
 const PRIORITY_CLASS = {
   high: "bg-primary/20 text-foreground",
@@ -14,8 +21,13 @@ const PRIORITY_CLASS = {
 
 <template>
   <article
-    class="bg-card group rounded-lg border p-3 shadow-xs transition-colors hover:border-ring"
+    class="bg-card group focus-visible:ring-ring/50 cursor-pointer rounded-lg border p-3 shadow-xs transition-colors outline-none hover:border-ring focus-visible:ring-3 active:cursor-grabbing"
     :data-key="ticket.key"
+    tabindex="0"
+    draggable="true"
+    @click="$emit('open')"
+    @keydown.enter.self="$emit('open')"
+    @dragstart="dragStart($event, ticket.key)"
   >
     <div class="flex items-center justify-between gap-2">
       <span class="text-muted-foreground font-mono text-xs">{{ ticket.key }}</span>
