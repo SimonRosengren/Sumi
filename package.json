@@ -12,15 +12,18 @@
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
     "dev:api": "pnpm --filter @sumi/api dev",
-    "bootstrap": "pnpm --filter @sumi/api bootstrap"
+    "bootstrap": "pnpm --filter @sumi/api bootstrap",
+    "dev:web": "pnpm --filter @sumi/web dev"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@sumi/cli": "workspace:*",
     "@sumi/mcp": "workspace:*",
     "eslint": "^10.13.0",
+    "eslint-plugin-vue": "^10.12.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.1"
+    "typescript-eslint": "^8.72.1",
+    "vue-eslint-parser": "^10.4.1"
   }
 }

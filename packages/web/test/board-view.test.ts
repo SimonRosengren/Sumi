@@ -1,0 +1,80 @@
+import { flushPromises, mount } from "@vue/test-utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import BoardView from "@/views/BoardView.vue";
+import { alice, fakeClient } from "./fixtures";
+
+beforeEach(() => localStorage.clear());
+
+async function render(client = fakeClient()) {
+  const wrapper = mount(BoardView, { props: { client, me: alice }, attachTo: document.body });
+  await flushPromises();
+  return { wrapper, client };
+}
+
+const column = (w: Awaited<ReturnType<typeof render>>["wrapper"], status: string) =>
+  w.get(`[data-status="${status}"]`);
+
+describe("BoardView", () => {
+  it("puts each ticket in the column for its status", async () => {
+    const { wrapper } = await render();
+    expect(column(wrapper, "backlog").text()).toContain("Backlog one");
+    expect(column(wrapper, "in_progress").text()).toContain("Doing it");
+    expect(column(wrapper, "done").text()).toContain("Finished");
+    expect(column(wrapper, "todo").text()).toContain("No tickets");
+  });
+
+  it("shows counts, links, priority and assignee kind on cards", async () => {
+    const { wrapper } = await render();
+    expect(column(wrapper, "done").get("h2").element.nextElementSibling?.textContent).toBe("1");
+    const card = column(wrapper, "in_progress").get('[data-key="SUMI-2"]');
+    expect(card.text()).toContain("high"); // shown capitalised by CSS
+    expect(card.text()).toContain("#7");
+    expect(card.text()).toContain("feat/x");
+    expect(card.get("[data-kind]").attributes("data-kind")).toBe("agent");
+    expect(column(wrapper, "done").get("[data-kind]").attributes("data-kind")).toBe("human");
+  });
+
+  it("loads the first project, then switches and remembers the choice", async () => {
+    const { wrapper, client } = await render();
+    expect(client.listTickets).toHaveBeenCalledWith({ projectKey: "SUMI" });
+
+    const web = wrapper.findAll("nav button").find((b) => b.text().includes("WEB"));
+    await web?.trigger("click");
+    await flushPromises();
+    expect(client.listTickets).toHaveBeenLastCalledWith({ projectKey: "WEB" });
+    expect(column(wrapper, "todo").text()).toContain("Landing page");
+    expect(wrapper.text()).not.toContain("Backlog one");
+    expect(localStorage.getItem("sumi.project")).toBe("WEB");
+
+    const reopened = await render();
+    expect(reopened.client.listTickets).toHaveBeenCalledWith({ projectKey: "WEB" });
+  });
+
+  it("falls back to the first project when the remembered one is gone", async () => {
+    localStorage.setItem("sumi.project", "GONE");
+    const { client } = await render();
+    expect(client.listTickets).toHaveBeenCalledWith({ projectKey: "SUMI" });
+  });
+
+  it("shows an empty state when there are no projects", async () => {
+    const { wrapper } = await render(fakeClient({ listProjects: vi.fn(async () => []) }));
+    expect(wrapper.text()).toContain("No projects yet");
+  });
+
+  it("shows API errors instead of an empty board", async () => {
+    const { wrapper } = await render(
+      fakeClient({ listProjects: vi.fn(async () => Promise.reject(new Error("Cannot reach the API"))) }),
+    );
+    expect(wrapper.get('[role="alert"]').text()).toBe("Cannot reach the API");
+  });
+
+  it("refreshes on demand and emits sign-out", async () => {
+    const { wrapper, client } = await render();
+    await wrapper.get('[aria-label="Refresh"]').trigger("click");
+    await flushPromises();
+    expect(client.listTickets).toHaveBeenCalledTimes(2);
+
+    await wrapper.get('[aria-label="Sign out"]').trigger("click");
+    expect(wrapper.emitted("signOut")).toHaveLength(1);
+  });
+});

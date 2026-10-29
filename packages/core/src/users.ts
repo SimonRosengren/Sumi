@@ -58,6 +58,11 @@ export function createUserService({ cols, tx }: Ctx) {
       });
     },
 
+    async list(): Promise<User[]> {
+      const docs = await cols.users.find().sort({ createdAt: 1, _id: 1 }).toArray();
+      return docs.map(toUser);
+    },
+
     async get(id: string): Promise<User | null> {
       const doc = await cols.users.findOne({ _id: id });
       return doc ? toUser(doc) : null;

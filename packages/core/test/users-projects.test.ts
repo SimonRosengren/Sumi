@@ -21,6 +21,14 @@ describe("users", () => {
     );
   });
 
+  it("lists users oldest first", async () => {
+    const a = await core().users.create({ kind: "human", name: "First" });
+    const b = await core().users.create({ kind: "agent", name: "Second" });
+    const ids = (await core().users.list()).map((u) => u.id);
+    expect(ids.indexOf(a.id)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));
+  });
+
   it("allows many users without a GitHub id", async () => {
     await core().users.create({ kind: "agent", name: "a1" });
     await core().users.create({ kind: "agent", name: "a2" });

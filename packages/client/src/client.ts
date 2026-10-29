@@ -84,6 +84,7 @@ export function createClient({ url, token, fetch: fetchImpl = fetch }: ClientOpt
 
   return {
     me: (): Promise<User> => request("GET", "/me", UserSchema),
+    listUsers: (): Promise<User[]> => request("GET", "/users", z.array(UserSchema)),
     createAgent: (name: string): Promise<AgentCreated> =>
       request("POST", "/agents", AgentCreatedSchema, { body: { name } }),
     listProjects: (): Promise<Project[]> => request("GET", "/projects", Projects),

@@ -71,6 +71,8 @@ export function createApp(core: Core) {
 
   app.get("/me", (c) => c.json(c.get("user")));
 
+  app.get("/users", async (c) => c.json(await core.users.list()));
+
   app.post("/agents", validate("json", CreateAgentInputSchema), async (c) => {
     const created = await core.users.createAgent(c.get("user").id, c.req.valid("json"));
     return c.json(created, 201);

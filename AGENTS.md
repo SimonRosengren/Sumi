@@ -15,6 +15,7 @@ TypeScript everywhere, pnpm monorepo, MongoDB, Hono HTTP API, Vue 3 (Vite) web, 
 - `docs/README.md`: index of all docs
 - `docs/architecture.md`: package map and boundaries
 - `docs/domain.md`: entities, statuses, invariants
+- `docs/design.md`: web UI palette, font and component rules (read before touching `packages/web`)
 - `docs/adr/`: decisions and why
 - `docs/guides/`: how-tos (adding an operation, testing)
 - `docs/roadmap.md`: milestones and current status
@@ -25,6 +26,7 @@ TypeScript everywhere, pnpm monorepo, MongoDB, Hono HTTP API, Vue 3 (Vite) web, 
 pnpm install
 pnpm dev:db       # local MongoDB (replica set) via docker compose
 pnpm dev:api      # API on :3000 (run `pnpm bootstrap <name>` once for a token)
+pnpm dev:web      # Kanban board on :5173 (proxies /api to the API)
 pnpm exec sumi --help   # the CLI (needs SUMI_TOKEN, see .env.example)
 pnpm exec sumi-mcp      # the MCP server on stdio (same env)
 pnpm lint

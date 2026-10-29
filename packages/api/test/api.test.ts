@@ -4,6 +4,7 @@ import {
   ErrorResponseSchema,
   ProjectSchema,
   TicketSchema,
+  UserSchema,
 } from "@sumi/contract";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -53,6 +54,12 @@ describe("agents", () => {
     expect(project.status).toBe(201);
     const log = await api().call("GET", "/activity?projectKey=AGT");
     expect(log.body[0]).toMatchObject({ actorId: user.id, action: "project.created" });
+  });
+
+  it("lists users so clients can show names", async () => {
+    const res = await api().call("GET", "/users");
+    expect(res.status).toBe(200);
+    expect(z.array(UserSchema).parse(res.body).map((u) => u.id)).toContain(api().aliceId);
   });
 
   it("forbids agents from creating agents", async () => {

@@ -1,0 +1,108 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Palette (the only hard-coded colors; everything else is derived from these):
+ *   light E7E7D8   dark 1E1E1D   secondary AEAC95   accents F09235 ED762F EC642B
+ * Accent text is always the dark color: white on these oranges is only ~2.9:1.
+ */
+:root {
+  --sumi-light: #e7e7d8;
+  --sumi-dark: #1e1e1d;
+  --sumi-secondary: #aeac95;
+  --sumi-accent-1: #f09235;
+  --sumi-accent-2: #ed762f;
+  --sumi-accent-3: #ec642b;
+
+  --radius: 0.5rem;
+
+  --background: var(--sumi-light);
+  --foreground: var(--sumi-dark);
+  --card: color-mix(in oklab, var(--sumi-light) 55%, white);
+  --card-foreground: var(--sumi-dark);
+  --popover: color-mix(in oklab, var(--sumi-light) 55%, white);
+  --popover-foreground: var(--sumi-dark);
+  --primary: var(--sumi-accent-2);
+  --primary-foreground: var(--sumi-dark);
+  --secondary: color-mix(in oklab, var(--sumi-secondary) 35%, var(--sumi-light));
+  --secondary-foreground: var(--sumi-dark);
+  --muted: color-mix(in oklab, var(--sumi-secondary) 25%, var(--sumi-light));
+  --muted-foreground: color-mix(in oklab, var(--sumi-dark) 68%, var(--sumi-light));
+  --accent: color-mix(in oklab, var(--sumi-accent-1) 22%, var(--sumi-light));
+  --accent-foreground: var(--sumi-dark);
+  --destructive: color-mix(in oklab, var(--sumi-accent-3) 70%, var(--sumi-dark));
+  --border: color-mix(in oklab, var(--sumi-secondary) 60%, var(--sumi-light));
+  --input: color-mix(in oklab, var(--sumi-secondary) 75%, var(--sumi-light));
+  --ring: var(--sumi-accent-1);
+}
+
+.dark {
+  --background: var(--sumi-dark);
+  --foreground: var(--sumi-light);
+  --card: color-mix(in oklab, var(--sumi-light) 6%, var(--sumi-dark));
+  --card-foreground: var(--sumi-light);
+  --popover: color-mix(in oklab, var(--sumi-light) 8%, var(--sumi-dark));
+  --popover-foreground: var(--sumi-light);
+  --primary: var(--sumi-accent-1);
+  --primary-foreground: var(--sumi-dark);
+  --secondary: color-mix(in oklab, var(--sumi-secondary) 18%, var(--sumi-dark));
+  --secondary-foreground: var(--sumi-light);
+  --muted: color-mix(in oklab, var(--sumi-secondary) 12%, var(--sumi-dark));
+  --muted-foreground: var(--sumi-secondary);
+  --accent: color-mix(in oklab, var(--sumi-accent-1) 20%, var(--sumi-dark));
+  --accent-foreground: var(--sumi-light);
+  --destructive: var(--sumi-accent-3);
+  --border: color-mix(in oklab, var(--sumi-secondary) 22%, var(--sumi-dark));
+  --input: color-mix(in oklab, var(--sumi-secondary) 30%, var(--sumi-dark));
+  --ring: var(--sumi-accent-1);
+}
+
+@theme inline {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Ticket status colors: neutral -> light orange -> deep orange as work progresses. */
+  --color-status-backlog: var(--sumi-secondary);
+  --color-status-todo: var(--sumi-secondary);
+  --color-status-in-progress: var(--sumi-accent-1);
+  --color-status-in-review: var(--sumi-accent-2);
+  --color-status-done: var(--sumi-accent-3);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+}

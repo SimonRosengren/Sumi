@@ -6,6 +6,7 @@
 - [ ] 3b. GitHub OAuth for humans, token listing/revocation, SSE live updates
 - [x] 4. CLI
 - [x] 5. MCP server
-- [ ] 6. Vue Kanban board (read-only, then drag and drop, live updates)
+- [x] 6a. Vue Kanban board, read-only, token sign-in
+- [ ] 6b. Live updates (SSE), then drag and drop to move tickets, ticket detail
 - [ ] 7. GitHub integration (webhooks move tickets)
 - [ ] 8. Install story (quickstart, Docker image)

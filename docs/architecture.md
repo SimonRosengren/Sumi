@@ -7,13 +7,13 @@ packages/
   contract/  zod schemas for requests, responses, events (shared types)
   core/      domain model, services, Mongo repositories (all business logic)
   api/       HTTP server: auth, routes, SSE. Wraps core.
-  client/    typed HTTP client of the API, shared by cli and mcp
+  client/    typed HTTP client of the API, shared by cli, mcp and web
   cli/       commands (--json), built on client
   mcp/       MCP server (stdio), built on client
-  web/       Vue 3 Kanban board, HTTP client of the API
+  web/       Vue 3 Kanban board, built on client
 ```
 
-Packages are created as their milestone starts; see [roadmap.md](roadmap.md). `contract`, `core`, `api`, `client`, `cli` and `mcp` exist today.
+Packages are created as their milestone starts; see [roadmap.md](roadmap.md). `contract`, `core`, `api`, `client`, `cli`, `mcp` and `web` exist today.
 
 Internal packages export TypeScript source and have no build step ([ADR 0011](adr/0011-internal-packages-export-typescript-source.md)).
 
@@ -33,17 +33,20 @@ Internal packages export TypeScript source and have no build step ([ADR 0011](ad
 
 `createServer(client)` in `packages/mcp/src/server.ts` registers the tools and returns an `McpServer`; `main.ts` connects it to stdio. The tool list, response shape and what is deliberately not exposed are in [ADR 0016](adr/0016-mcp-server-and-shared-client.md). Tool descriptions are what the agent reads, so keep them short and accurate.
 
+## web layout
+
+`packages/web/src`: `App.vue` (session: login or board), `views/` (`LoginView`, `BoardView`), `components/` (ours) and `components/ui/` (generated shadcn-vue, do not edit), `composables/useBoard.ts` (the board's state), `lib/` (session, theme, pure board helpers). The browser talks to `/api`, which the dev server proxies to the API. Stack in [ADR 0017](adr/0017-web-stack.md), look and rules in [design.md](design.md).
+
 ## Dependency rules
 
 ```
 contract  <-  core  <-  api
-contract  <-  client  <-  cli | mcp
-contract  <-  web
+contract  <-  client  <-  cli | mcp | web
 ```
 
 - `core` depends on `contract` and the Mongo driver only.
 - `api` is the only package that imports `core`. It is built with Hono ([ADR 0009](adr/0009-hono-for-http-api.md)).
-- `client`, `cli`, `mcp`, `web` never import `core` or the database driver and reach everything through HTTP. `cli` and `mcp` share `client`; `web` uses `contract` only.
+- `client`, `cli`, `mcp`, `web` never import `core` or the database driver and reach everything through HTTP. `cli`, `mcp` and `web` share `client`.
 - These rules are enforced by `no-restricted-imports` in `eslint.config.js` (`pnpm lint`).
 
 ## Data flow
@@ -54,4 +57,4 @@ Live updates: core writes -> Mongo change stream -> API -> SSE -> web (and any a
 ## Auth
 
 - All clients: `Authorization: Bearer <token>`, one token per user ([ADR 0013](adr/0013-api-token-authentication.md)). Agents are users with `kind: agent`, created by a human, so the activity log can attribute actions.
-- Humans in the browser: GitHub OAuth with a session cookie (planned, not built yet).
+- Humans in the browser: today they paste an API token on the login screen (kept in `localStorage`). GitHub OAuth with a session cookie is planned and will replace this.
