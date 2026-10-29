@@ -3,7 +3,7 @@ import type { Client } from "@sumi/client";
 import type { User } from "@sumi/contract";
 import { STATUSES } from "@sumi/contract";
 import { LogOut, RefreshCw } from "@lucide/vue";
-import { onMounted } from "vue";
+import { onMounted, onUnmounted } from "vue";
 import BoardColumn from "@/components/BoardColumn.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import UserAvatar from "@/components/UserAvatar.vue";
@@ -17,7 +17,12 @@ const props = defineProps<{ client: Client; me: User }>();
 defineEmits<{ signOut: [] }>();
 
 const board = useBoard(props.client);
-onMounted(board.load);
+let stopWatching = () => {};
+onMounted(async () => {
+  await board.load();
+  stopWatching = board.watch();
+});
+onUnmounted(() => stopWatching());
 </script>
 
 <template>

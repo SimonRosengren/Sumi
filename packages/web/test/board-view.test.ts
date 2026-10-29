@@ -1,7 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import BoardView from "@/views/BoardView.vue";
-import { alice, fakeClient } from "./fixtures";
+import { alice, fakeClient, ticket, tickets } from "./fixtures";
 
 beforeEach(() => localStorage.clear());
 
@@ -76,5 +76,110 @@ describe("BoardView", () => {
 
     await wrapper.get('[aria-label="Sign out"]').trigger("click");
     expect(wrapper.emitted("signOut")).toHaveLength(1);
+  });
+
+  describe("live updates", () => {
+    type WatchOpts = { onEntry: (e: unknown) => void; onReady: () => void; signal: AbortSignal };
+    const opts = (client: Awaited<ReturnType<typeof render>>["client"]) =>
+      vi.mocked(client.watch).mock.calls[0]?.[0] as unknown as WatchOpts;
+
+    it("starts watching once loaded and stops when the board goes away", async () => {
+      const { wrapper, client } = await render();
+      expect(client.watch).toHaveBeenCalledTimes(1);
+      expect(opts(client).signal.aborted).toBe(false);
+      wrapper.unmount();
+      expect(opts(client).signal.aborted).toBe(true);
+    });
+
+    it("shows a ticket that appears on the server without a manual refresh", async () => {
+      const listTickets = vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([ticket({ key: "SUMI-9", title: "Made by an agent", status: "todo" })]);
+      const { wrapper, client } = await render(fakeClient({ listTickets }));
+      expect(wrapper.text()).not.toContain("Made by an agent");
+
+      vi.useFakeTimers();
+      try {
+        opts(client).onEntry({});
+        await vi.advanceTimersByTimeAsync(200);
+      } finally {
+        vi.useRealTimers();
+      }
+      await flushPromises();
+      expect(column(wrapper, "todo").text()).toContain("Made by an agent");
+    });
+
+    it("reloads once for a burst of events", async () => {
+      const { client } = await render();
+      const before = vi.mocked(client.listTickets).mock.calls.length;
+      vi.useFakeTimers();
+      try {
+        for (let i = 0; i < 5; i++) opts(client).onEntry({});
+        await vi.advanceTimersByTimeAsync(200);
+      } finally {
+        vi.useRealTimers();
+      }
+      await flushPromises();
+      expect(vi.mocked(client.listTickets).mock.calls.length - before).toBe(1);
+    });
+
+    it("reloads when the connection (re)opens, to catch up on missed changes", async () => {
+      const { client } = await render();
+      const before = vi.mocked(client.listTickets).mock.calls.length;
+      opts(client).onReady();
+      await flushPromises();
+      expect(vi.mocked(client.listTickets).mock.calls.length - before).toBe(1);
+    });
+
+    it("does not overlap reloads, and runs once more if asked meanwhile", async () => {
+      let release!: () => void;
+      let running = 0;
+      let maxRunning = 0;
+      const listTickets = vi.fn(async () => {
+        running++;
+        maxRunning = Math.max(maxRunning, running);
+        await new Promise<void>((r) => (release = r));
+        running--;
+        return [];
+      });
+      const { client } = await render(fakeClient({ listTickets: vi.fn(async () => []) }));
+      // Swap in a slow implementation for the refreshes below.
+      vi.mocked(client.listTickets).mockImplementation(listTickets);
+
+      opts(client).onReady();
+      opts(client).onReady();
+      opts(client).onReady();
+      await flushPromises();
+      expect(listTickets).toHaveBeenCalledTimes(1);
+      release();
+      await flushPromises();
+      expect(listTickets).toHaveBeenCalledTimes(2); // one catch-up run, not three
+      release();
+      await flushPromises();
+      expect(maxRunning).toBe(1);
+    });
+
+    it("drops a stale reload that finishes after switching project", async () => {
+      let finishSumi!: () => void;
+      const listTickets = vi.fn(async ({ projectKey }: { projectKey: string }) => {
+        if (projectKey === "SUMI" && listTickets.mock.calls.length > 1) {
+          await new Promise<void>((r) => (finishSumi = r));
+        }
+        return tickets[projectKey] ?? [];
+      });
+      const { wrapper, client } = await render(fakeClient({ listTickets }));
+
+      opts(client).onReady(); // slow reload of SUMI starts
+      await flushPromises();
+      const web = wrapper.findAll("nav button").find((b) => b.text().includes("WEB"));
+      await web?.trigger("click");
+      await flushPromises();
+      finishSumi();
+      await flushPromises();
+
+      expect(column(wrapper, "todo").text()).toContain("Landing page");
+      expect(wrapper.text()).not.toContain("Backlog one");
+    });
   });
 });

@@ -41,6 +41,8 @@ export function fakeClient(overrides: Partial<Record<keyof Client, unknown>> = {
     listProjects: vi.fn(async () => projects),
     listUsers: vi.fn(async () => [alice, bot]),
     listTickets: vi.fn(async ({ projectKey }: { projectKey: string }) => tickets[projectKey] ?? []),
+    // Never connects. Tests drive it through the options passed to the first call.
+    watch: vi.fn(({ signal }: { signal: AbortSignal }) => new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()))),
     ...overrides,
   } as unknown as Client;
 }
