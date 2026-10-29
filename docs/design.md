@@ -38,7 +38,7 @@ Temporary, in `AppWordmark.vue`: the Lucide `Origami` icon (stroke 2.5, primary 
 ## Interaction
 
 - Cards are draggable between columns; the target column gets an accent ring while a card is over it. Cards are also keyboard-focusable and open the detail panel with Enter or click.
-- The ticket detail panel is a right-hand sheet (full width on narrow screens) with native `<select>` fields styled like inputs. Anything draggable also needs a non-drag way to do it (the status select), because touch screens cannot drag.
+- The ticket detail is a centered modal (nearly full width on narrow screens, scrolls when tall) with native `<select>` fields styled like inputs. Anything draggable also needs a non-drag way to do it (the status select), because touch screens cannot drag.
 
 ## Components
 

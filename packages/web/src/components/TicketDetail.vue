@@ -29,7 +29,7 @@ function setPriority(value: string) {
       <DialogContent
         v-if="ticket"
         data-testid="ticket-detail"
-        class="bg-background animate-in slide-in-from-right fixed inset-y-0 right-0 z-50 flex w-full flex-col gap-5 overflow-y-auto border-l p-5 shadow-xl outline-none sm:max-w-md"
+        class="bg-background animate-in fade-in-0 zoom-in-95 fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col gap-5 overflow-y-auto rounded-lg border p-6 shadow-xl outline-none"
       >
         <header class="flex items-start justify-between gap-3">
           <div class="min-w-0">
