@@ -21,5 +21,30 @@ services:
       retries: 10
       start_period: 5s
 
+  # The whole app in one container: API under /api, board at /. `docker compose up -d --build`.
+  # Published on 127.0.0.1 only; put a reverse proxy with TLS in front to share it (docs/guides/install.md).
+  sumi:
+    build: .
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${SUMI_PORT:-3000}:3000"
+    environment:
+      # directConnection skips the replica set's advertised host (localhost), which is wrong inside the network.
+      MONGODB_URI: mongodb://mongo:27018/sumi?replicaSet=rs0&directConnection=true
+      SUMI_PUBLIC_URL: ${SUMI_PUBLIC_URL:-http://localhost:3000}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_ALLOWED_LOGINS: ${GITHUB_ALLOWED_LOGINS:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
 volumes:
   mongo-data:

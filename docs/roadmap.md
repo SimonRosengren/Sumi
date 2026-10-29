@@ -11,4 +11,4 @@
 - [x] 6b. Board updates live
 - [x] 6c. Drag and drop to move tickets, ticket detail panel
 - [x] 7. GitHub integration (webhooks move tickets)
-- [ ] 8. Install story (quickstart, Docker image)
+- [x] 8. Install story (quickstart, Docker image)

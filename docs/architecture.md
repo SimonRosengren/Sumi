@@ -23,7 +23,7 @@ Internal packages export TypeScript source and have no build step ([ADR 0011](ad
 
 ## api layout
 
-`createApp(core)` in `packages/api/src/app.ts` returns the Hono app; the route list lives there and is exercised in `packages/api/test/api.test.ts`. `src/server.ts` serves it, `src/bootstrap.ts` creates the first human and token, `src/test-server.ts` starts it on a throwaway database for black-box client tests. Routes validate input with the contract schemas, take the acting user from the bearer token and pass it to core. Every error response is `{ error: { code, message } }` ([ErrorResponseSchema](../packages/contract/src/responses.ts)); `SumiError` codes map to 400/403/404/409, anything else is a 500 with a generic message. `GET /health` is the only unauthenticated route.
+`createApp(core)` in `packages/api/src/app.ts` returns the Hono app; the route list lives there and is exercised in `packages/api/test/api.test.ts`. `src/server.ts` serves it, `src/bootstrap.ts` creates the first human and token, `src/test-server.ts` starts it on a throwaway database for black-box client tests. Routes validate input with the contract schemas, take the acting user from the bearer token and pass it to core. Every error response is `{ error: { code, message } }` ([ErrorResponseSchema](../packages/contract/src/responses.ts)); `SumiError` codes map to 400/403/404/409, anything else is a 500 with a generic message. Unauthenticated routes: `GET /health`, `GET /auth/config`, the GitHub sign-in routes (`/auth/github*`, [ADR 0021](adr/0021-github-sign-in-and-token-management.md)) and the signature-checked `POST /webhooks/github` ([ADR 0022](adr/0022-github-webhook-moves-tickets.md)). `src/host.ts` wraps the app for deployment (API under `/api`, web app at `/`).
 
 ## cli layout
 
@@ -48,6 +48,10 @@ contract  <-  client  <-  cli | mcp | web
 - `api` is the only package that imports `core`. It is built with Hono ([ADR 0009](adr/0009-hono-for-http-api.md)).
 - `client`, `cli`, `mcp`, `web` never import `core` or the database driver and reach everything through HTTP. `cli`, `mcp` and `web` share `client`.
 - These rules are enforced by `no-restricted-imports` in `eslint.config.js` (`pnpm lint`).
+
+## Deployment
+
+One container ([ADR 0023](adr/0023-docker-image-and-compose.md)): the API under `/api` and the built web app at `/`, next to MongoDB. In development the API is at `/` and the Vite server proxies `/api` to it. How to run it: [guides/install.md](guides/install.md).
 
 ## Data flow
 

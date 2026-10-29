@@ -12,6 +12,8 @@ export const config = {
   githubClientId: process.env.GITHUB_CLIENT_ID,
   githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
   githubAllowedLogins: list(process.env.GITHUB_ALLOWED_LOGINS),
+  /** Directory of the built web app. When set, the API also serves the board at `/`. */
+  webDir: process.env.SUMI_WEB_DIR || undefined,
   githubWebhookSecret: process.env.GITHUB_WEBHOOK_SECRET || undefined,
 };
 
