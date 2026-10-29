@@ -8,7 +8,7 @@ Sumi is a minimal, multi-user ticket management system (Trello/Linear-like), **a
 
 ## Stack
 
-TypeScript everywhere, pnpm monorepo, MongoDB, Hono-style HTTP API, Vue 3 (Vite) web, GitHub OAuth. Rationale lives in `docs/adr/`.
+TypeScript everywhere, pnpm monorepo, MongoDB, Hono HTTP API, Vue 3 (Vite) web, GitHub OAuth. Rationale lives in `docs/adr/`.
 
 ## Where to look
 

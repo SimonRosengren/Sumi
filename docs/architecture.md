@@ -22,7 +22,7 @@ contract  <-  cli | mcp | web
 ```
 
 - `core` depends on `contract` and the Mongo driver only.
-- `api` is the only package that imports `core`.
+- `api` is the only package that imports `core`. It is built with Hono ([ADR 0009](adr/0009-hono-for-http-api.md)).
 - `cli`, `mcp`, `web` depend on `contract` only and reach everything through HTTP.
 
 ## Data flow
