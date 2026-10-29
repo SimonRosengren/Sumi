@@ -29,7 +29,7 @@ onUnmounted(() => stopWatching());
 <template>
   <TooltipProvider :delay-duration="150">
     <div class="flex min-h-screen flex-col">
-      <header class="flex flex-wrap items-center gap-x-6 gap-y-2 border-b px-4 py-2.5">
+      <header class="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2.5">
         <AppWordmark />
         <nav
           v-if="board.projects.value.length > 0"
