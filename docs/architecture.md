@@ -52,7 +52,7 @@ contract  <-  client  <-  cli | mcp | web
 ## Data flow
 
 Client (CLI / MCP / web) -> HTTP API (auth, validation via contract) -> core service -> MongoDB.
-Live updates: core writes -> Mongo change stream -> API -> SSE -> web (and any agent that subscribes).
+Live updates: every mutation writes an activity entry -> Mongo change stream (`core.activity.subscribe`) -> `GET /events` (SSE) -> `client.watch` -> web reloads the board. Details in [ADR 0019](adr/0019-sse-live-updates.md).
 
 ## Auth
 

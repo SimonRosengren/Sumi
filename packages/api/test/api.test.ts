@@ -178,3 +178,39 @@ describe("errors", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("GET /events", () => {
+  it("requires a token", async () => {
+    const res = await api().call("GET", "/events", { token: null });
+    expect(res.status).toBe(401);
+  });
+
+  it("streams ready, then one activity event per change", async () => {
+    const h = api();
+    const res = await h.app.request("/events", { headers: { authorization: `Bearer ${h.token}` } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    const until = async (needle: string) => {
+      while (!text.includes(needle)) {
+        const { value, done } = await reader.read();
+        if (done) throw new Error(`stream ended before "${needle}": ${text}`);
+        text += decoder.decode(value);
+      }
+    };
+
+    await until("event: ready");
+    await h.call("POST", "/projects", { body: { key: "LIVE", name: "Live" } });
+    await until("event: activity");
+    const data = /data: (.+)/.exec(text.slice(text.indexOf("event: activity")))?.[1];
+    expect(ActivityEntrySchema.parse(JSON.parse(data!))).toMatchObject({
+      action: "project.created",
+      projectKey: "LIVE",
+      actorId: h.aliceId,
+    });
+    await reader.cancel();
+  });
+});

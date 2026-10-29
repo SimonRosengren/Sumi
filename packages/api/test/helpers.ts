@@ -7,6 +7,7 @@ const uri =
 
 export interface Harness {
   core: Core;
+  app: ReturnType<typeof createApp>;
   /** Token of a seeded human, "Alice". */
   token: string;
   aliceId: string;
@@ -27,6 +28,7 @@ export function useApi(): () => Harness {
     const token = await core.tokens.create(alice.id, alice.id);
     h = {
       core,
+      app,
       token,
       aliceId: alice.id,
       async call(method, path, opts = {}) {

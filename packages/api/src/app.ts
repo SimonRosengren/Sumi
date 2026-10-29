@@ -16,6 +16,7 @@ import {
 import { SumiError, type Core } from "@sumi/core";
 import { Hono, type Context } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 
 type Env = { Variables: { user: User } };
@@ -42,6 +43,8 @@ const validate = <Target extends "json" | "query" | "param", S extends z.ZodType
       return fail(c, "validation", message);
     }
   });
+
+const PING_MS = 25_000;
 
 const KeyParamSchema = z.object({ key: TicketKeySchema });
 
@@ -118,6 +121,39 @@ export function createApp(core: Core) {
 
   app.get("/activity", validate("query", ListActivityInputSchema), async (c) =>
     c.json(await core.activity.list(c.req.valid("query"))),
+  );
+
+  /**
+   * Server-sent events: one `activity` event (an ActivityEntry as JSON) per change,
+   * for every project. `ready` is sent once the subscription is live; a client that
+   * (re)connects should reload its data after `ready`, since events are not replayed.
+   * `ping` keeps idle connections open through proxies.
+   */
+  app.get("/events", (c) =>
+    streamSSE(c, async (stream) => {
+      let end!: () => void;
+      const ended = new Promise<void>((resolve) => (end = resolve));
+      stream.onAbort(end);
+
+      const stop = await core.activity.subscribe(
+        (entry) => void stream.writeSSE({ event: "activity", data: JSON.stringify(entry) }).catch(end),
+        (err) => {
+          console.error(err);
+          end(); // closing makes the client reconnect, which resubscribes
+        },
+      );
+      try {
+        await stream.writeSSE({ event: "ready", data: "" });
+        const timer = setInterval(() => void stream.writeSSE({ event: "ping", data: "" }).catch(end), PING_MS);
+        try {
+          await ended;
+        } finally {
+          clearInterval(timer);
+        }
+      } finally {
+        await stop();
+      }
+    }),
   );
 
   return app;

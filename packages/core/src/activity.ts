@@ -19,5 +19,37 @@ export function createActivityService({ cols }: Ctx) {
       const docs = await cols.activity.find(filter).sort({ createdAt: -1, _id: -1 }).limit(data.limit).toArray();
       return docs.map(toEntry);
     },
+
+    /**
+     * Calls `onEntry` for every activity entry written from now on (a Mongo change
+     * stream, so it also sees writes made by other processes). Resolves once the
+     * stream is open, so anything written after that is delivered. `onError` is
+     * called if the stream breaks; it does not resume, the caller re-subscribes.
+     * Returns a function that stops the subscription.
+     */
+    async subscribe(onEntry: (entry: ActivityEntry) => void, onError: (err: unknown) => void): Promise<() => Promise<void>> {
+      const stream = cols.activity.watch([{ $match: { operationType: "insert" } }]);
+      let stopped = false;
+      try {
+        const first = await stream.tryNext(); // opens the cursor
+        void (async () => {
+          try {
+            if (first?.operationType === "insert") onEntry(toEntry(first.fullDocument));
+            for await (const change of stream) {
+              if (change.operationType === "insert") onEntry(toEntry(change.fullDocument));
+            }
+          } catch (err) {
+            if (!stopped) onError(err);
+          }
+        })();
+      } catch (err) {
+        await stream.close().catch(() => undefined);
+        throw err;
+      }
+      return async () => {
+        stopped = true;
+        await stream.close();
+      };
+    },
   };
 }
