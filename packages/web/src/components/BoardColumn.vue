@@ -2,6 +2,7 @@
 import type { Lane, Ticket, User } from "@sumi/contract";
 import { LANE_NAME_MAX_LENGTH } from "@sumi/contract";
 import { GripVertical, Pencil, Trash2 } from "@lucide/vue";
+import { Button } from "@/components/ui/button";
 import { nextTick, ref, watch } from "vue";
 import StatusIcon from "@/components/StatusIcon.vue";
 import TicketCard from "@/components/TicketCard.vue";
@@ -100,14 +101,14 @@ function commit() {
 <template>
   <section
     class="flex w-72 shrink-0 flex-col gap-2 rounded-lg transition-colors sm:w-auto sm:min-w-0 sm:flex-1"
-    :class="{ 'bg-primary/10': laneOver }"
+    :class="{ 'bg-primary/12': laneOver }"
     :data-status="lane.id"
     @dragover="dragOverLane"
     @dragleave="leaveLane"
     @drop="dropLane"
   >
     <header
-      class="flex items-center gap-2 rounded-md px-1.5 py-1"
+      class="flex items-center gap-2 rounded-md px-2 py-1"
       :class="{ 'hover:bg-accent cursor-grab active:cursor-grabbing': editing && !renaming }"
       :draggable="editing && !renaming"
       data-lane-handle
@@ -122,39 +123,35 @@ function commit() {
         :maxlength="LANE_NAME_MAX_LENGTH"
         aria-label="Lane name"
         autocomplete="off"
-        class="border-input bg-card focus-visible:border-ring focus-visible:ring-ring/30 h-6 min-w-0 flex-1 rounded-md border px-1.5 text-[13px] font-semibold tracking-tight outline-none focus-visible:ring-2"
+        class="border-input bg-card focus-visible:border-ring focus-visible:ring-ring/40 h-6 min-w-0 flex-1 rounded-md border px-2 type-column outline-none focus-visible:ring-2"
         @keydown.enter.prevent="commit"
         @keydown.esc.prevent="emit('cancelRename')"
         @blur="commit"
       />
       <template v-else>
-        <h2 class="min-w-0 truncate text-[13px] font-semibold tracking-tight">{{ lane.name }}</h2>
+        <h2 class="type-column min-w-0 truncate">{{ lane.name }}</h2>
         <span class="text-muted-foreground font-mono text-xs">{{ tickets.length }}</span>
         <template v-if="editing">
-          <button
-            type="button"
-            class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/40 -my-0.5 shrink-0 rounded-md p-1 transition-colors outline-none focus-visible:ring-2"
-            :aria-label="`Rename ${lane.name}`"
-            @click="emit('startRename')"
-          >
+          <Button variant="ghost" size="icon-xs" :aria-label="`Rename ${lane.name}`" @click="emit('startRename')">
             <Pencil class="size-3.5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            class="text-muted-foreground hover:bg-accent hover:text-destructive focus-visible:ring-ring/40 -my-0.5 ml-auto shrink-0 rounded-md p-1 transition-colors outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-40"
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            class="hover:text-destructive ml-auto"
             :aria-label="`Delete ${lane.name}`"
             :title="tickets.length > 0 ? 'Move its tickets away first' : 'Delete lane'"
             :disabled="tickets.length > 0"
             @click="emit('remove')"
           >
             <Trash2 class="size-3.5" aria-hidden="true" />
-          </button>
+          </Button>
         </template>
       </template>
     </header>
     <div
-      class="bg-muted/50 flex min-h-24 flex-1 flex-col gap-1.5 rounded-lg border border-transparent p-1.5 transition-colors"
-      :class="{ 'bg-primary/10 border-primary/40': over }"
+      class="bg-muted/50 flex min-h-24 flex-1 flex-col gap-2 rounded-lg border border-transparent p-2 transition-colors"
+      :class="{ 'bg-primary/12 border-primary/40': over }"
       data-dropzone
       @dragover="dragOverTickets"
       @dragleave="leave"
@@ -167,7 +164,7 @@ function commit() {
         :assignee="t.assigneeId ? usersById.get(t.assigneeId) : undefined"
         @open="emit('open', t.key)"
       />
-      <p v-if="tickets.length === 0" class="text-muted-foreground/80 m-auto py-6 text-xs">No tickets</p>
+      <p v-if="tickets.length === 0" class="text-muted-foreground m-auto py-6 text-xs">No tickets</p>
     </div>
   </section>
 </template>

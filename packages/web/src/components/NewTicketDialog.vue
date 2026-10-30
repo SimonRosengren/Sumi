@@ -54,40 +54,38 @@ async function submit() {
 <template>
   <DialogRoot :open="open" @update:open="(o) => !o && emit('close')">
     <DialogPortal>
-      <DialogOverlay class="animate-in fade-in-0 fixed inset-0 z-40 bg-black/30 dark:bg-black/50" />
+      <DialogOverlay class="animate-in fade-in-0 fixed inset-0 z-40 bg-scrim" />
       <DialogContent
         data-testid="new-ticket"
         @open-auto-focus.prevent="(titleInput?.$el as HTMLInputElement | undefined)?.focus()"
-        class="bg-card animate-in fade-in-0 zoom-in-95 fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border p-6 shadow-lg shadow-black/10 outline-none"
+        class="bg-card animate-in fade-in-0 zoom-in-95 fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border p-6 shadow-overlay outline-none"
       >
-        <form class="flex flex-col gap-5" @submit.prevent="submit">
+        <form class="flex flex-col gap-6" @submit.prevent="submit">
           <header class="flex items-start justify-between gap-3">
             <div>
-              <DialogTitle class="text-lg font-semibold tracking-tight">New ticket</DialogTitle>
-              <DialogDescription class="text-muted-foreground mt-1 text-[13px]">
+              <DialogTitle class="type-title">New ticket</DialogTitle>
+              <DialogDescription class="text-muted-foreground type-field mt-1">
                 In <span class="font-mono text-xs">{{ projectKey }}</span>. Assignee and priority can be set once it exists.
               </DialogDescription>
             </div>
-            <DialogClose
-              type="button"
-              class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/40 -m-1.5 shrink-0 rounded-md p-1.5 transition-colors outline-none focus-visible:ring-2"
-              aria-label="Close"
-            >
-              <X class="size-4" aria-hidden="true" />
+            <DialogClose as-child>
+              <Button type="button" variant="ghost" size="icon-sm" class="-my-1 shrink-0" aria-label="Close">
+                <X aria-hidden="true" />
+              </Button>
             </DialogClose>
           </header>
 
-          <div class="flex flex-col gap-1.5">
+          <div class="flex flex-col gap-2">
             <label for="new-title" :class="SECTION_LABEL">Title</label>
-            <Input id="new-title" ref="titleInput" v-model="title" class="h-8 text-[13px]" maxlength="200" required autocomplete="off" />
+            <Input id="new-title" ref="titleInput" v-model="title" class="h-8 max-md:type-field" maxlength="200" required autocomplete="off" />
           </div>
 
-          <div class="flex flex-col gap-1.5">
+          <div class="flex flex-col gap-2">
             <label for="new-description" :class="SECTION_LABEL">Description</label>
             <textarea id="new-description" v-model="description" :class="TEXTAREA" rows="5" maxlength="20000" />
           </div>
 
-          <div class="flex flex-col gap-1.5">
+          <div class="flex flex-col gap-2">
             <label for="new-status" :class="SECTION_LABEL">Status</label>
             <div class="relative">
               <select id="new-status" v-model="status" :class="FIELD">

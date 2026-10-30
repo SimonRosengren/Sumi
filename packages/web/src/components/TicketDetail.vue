@@ -101,11 +101,11 @@ function setPriority(value: string) {
 <template>
   <DialogRoot :open="ticket !== null" @update:open="(open) => !open && emit('close')">
     <DialogPortal>
-      <DialogOverlay class="animate-in fade-in-0 fixed inset-0 z-40 bg-black/30 dark:bg-black/50" />
+      <DialogOverlay class="animate-in fade-in-0 fixed inset-0 z-40 bg-scrim" />
       <DialogContent
         v-if="ticket"
         data-testid="ticket-detail"
-        class="bg-card animate-in fade-in-0 zoom-in-95 fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col gap-6 overflow-y-auto rounded-xl border p-6 shadow-lg shadow-black/10 outline-none"
+        class="bg-card animate-in fade-in-0 zoom-in-95 fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col gap-6 overflow-y-auto rounded-xl border p-6 shadow-overlay outline-none"
       >
         <header class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
@@ -116,7 +116,7 @@ function setPriority(value: string) {
             </form>
             <DialogTitle
               v-show="!editing"
-              class="mt-1 text-lg leading-snug font-semibold tracking-tight text-pretty"
+              class="type-title mt-1 leading-snug text-pretty"
             >{{ ticket.title }}</DialogTitle>
           </div>
           <Button
@@ -129,15 +129,14 @@ function setPriority(value: string) {
           >
             <Pencil aria-hidden="true" />
           </Button>
-          <DialogClose
-            class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/40 -m-1.5 shrink-0 rounded-md p-1.5 transition-colors outline-none focus-visible:ring-2"
-            aria-label="Close"
-          >
-            <X class="size-4" aria-hidden="true" />
+          <DialogClose as-child>
+            <Button variant="ghost" size="icon-sm" class="-my-1 shrink-0" aria-label="Close">
+              <X aria-hidden="true" />
+            </Button>
           </DialogClose>
         </header>
 
-        <dl class="grid grid-cols-[5.5rem_1fr] items-center gap-x-3 gap-y-2.5 text-[13px]">
+        <dl class="grid grid-cols-[5.5rem_1fr] items-center gap-x-3 gap-y-2 type-field">
           <dt class="text-muted-foreground"><label for="detail-status">Status</label></dt>
           <dd class="relative">
             <StatusIcon :status="ticket.status" class="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2" />
@@ -182,7 +181,7 @@ function setPriority(value: string) {
 
           <template v-if="ticket.links.repo || ticket.links.pr || ticket.links.branch">
             <dt class="text-muted-foreground">Links</dt>
-            <dd class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <dd class="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span v-if="ticket.links.repo" class="font-mono">{{ ticket.links.repo }}</span>
               <span v-if="ticket.links.pr" class="inline-flex items-center gap-1">
                 <GitPullRequest class="size-3.5" aria-hidden="true" />#{{ ticket.links.pr }}
@@ -222,9 +221,9 @@ function setPriority(value: string) {
           <h3 :class="SECTION_LABEL">Comments</h3>
           <ol v-if="comments.length > 0" class="mt-3 space-y-4" aria-label="Comments">
             <li v-for="c in comments" :key="c.id" data-testid="comment" class="text-sm">
-              <p class="text-[13px]">
+              <p class="type-field">
                 <span class="font-medium">{{ actorName(c.authorId) }}</span>
-                <time class="text-muted-foreground/80 ml-2 text-xs" :datetime="c.createdAt.toISOString()">{{ when(c.createdAt) }}</time>
+                <time class="text-muted-foreground ml-2 text-xs" :datetime="c.createdAt.toISOString()">{{ when(c.createdAt) }}</time>
               </p>
               <p class="mt-1 leading-relaxed break-words whitespace-pre-wrap">{{ c.body }}</p>
             </li>
@@ -244,18 +243,18 @@ function setPriority(value: string) {
             />
             <p v-if="commentError" role="alert" class="bg-destructive/10 text-destructive mt-2 rounded-md px-3 py-2 text-sm">{{ commentError }}</p>
             <div class="mt-2 flex justify-end">
-              <Button type="submit" size="sm" :disabled="!draftComment.trim() || commenting">Comment</Button>
+              <Button type="submit" variant="outline" size="sm" :disabled="!draftComment.trim() || commenting">Comment</Button>
             </div>
           </form>
         </section>
 
         <section>
           <h3 :class="SECTION_LABEL">Activity</h3>
-          <ol class="mt-3 space-y-3 text-[13px]" aria-label="Activity">
+          <ol class="mt-3 space-y-3 type-field" aria-label="Activity">
             <li v-for="a in activity" :key="a.id" class="text-muted-foreground">
               <span class="text-foreground font-medium">{{ actorName(a.actorId) }}</span>
               {{ describeActivity(a, lanes) }}
-              <time class="text-muted-foreground/80 block text-xs" :datetime="a.createdAt.toISOString()">{{ when(a.createdAt) }}</time>
+              <time class="text-muted-foreground block text-xs" :datetime="a.createdAt.toISOString()">{{ when(a.createdAt) }}</time>
             </li>
             <li v-if="activity.length === 0" class="text-muted-foreground">No activity yet.</li>
           </ol>

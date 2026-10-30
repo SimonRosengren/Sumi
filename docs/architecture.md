@@ -39,7 +39,7 @@ Internal packages export TypeScript source and have no build step ([ADR 0011](ad
 
 ## web layout
 
-`packages/web/src`: `App.vue` (session: login or board), `views/` (`LoginView`, `BoardView`), `components/` (ours; `TicketDetail` is the ticket panel, see [ADR 0020](adr/0020-board-interactions.md); `NewTicketDialog` creates tickets, see [ADR 0026](adr/0026-create-and-edit-tickets-in-the-web-ui.md)) and `components/ui/` (generated shadcn-vue, do not edit), `composables/useBoard.ts` (the board's state), `lib/` (session, theme, pure board helpers, shared form styles). The browser talks to `/api`, which the dev server proxies to the API. Stack in [ADR 0017](adr/0017-web-stack.md), look and rules in [design.md](design.md).
+`packages/web/src`: `App.vue` (session: login or board), `views/` (`LoginView`, `BoardView`), `components/` (ours; `TicketDetail` is the ticket panel, see [ADR 0020](adr/0020-board-interactions.md); `NewTicketDialog` creates tickets, see [ADR 0026](adr/0026-create-and-edit-tickets-in-the-web-ui.md)) and `components/ui/` (generated shadcn-vue, do not edit), `composables/useBoard.ts` (the board's state) and `composables/useViewSettings.ts` (hidden lanes, kept in the browser, see [ADR 0030](adr/0030-view-settings-stay-in-the-browser.md)), `lib/` (session, theme, view settings, pure board helpers, shared form styles). The browser talks to `/api`, which the dev server proxies to the API. Stack in [ADR 0017](adr/0017-web-stack.md), look and rules in [design.md](design.md).
 
 ## Dependency rules
 

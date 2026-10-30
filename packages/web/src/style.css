@@ -44,6 +44,8 @@
   --status-in-review: #7e67ae;
   --status-done: #4e8b63;
   --priority-medium: #8f5f0e;
+
+  --scrim: rgb(0 0 0 / 0.3); /* behind dialogs */
 }
 
 .dark {
@@ -76,6 +78,8 @@
   --status-in-review: #a592cf;
   --status-done: #78b28a;
   --priority-medium: #d1a44e;
+
+  --scrim: rgb(0 0 0 / 0.5);
 }
 
 @theme inline {
@@ -117,6 +121,50 @@
   --color-priority-high: var(--destructive);
   --color-priority-medium: var(--priority-medium);
   --color-priority-low: var(--muted-foreground);
+  --color-scrim: var(--scrim);
+}
+
+/*
+ * Structural tokens (ADR 0031, docs/design.md). Same rule as colors: components use these names,
+ * never arbitrary values like text-[13px] or tracking-[0.06em].
+ */
+@theme {
+  /* Type sizes outside Tailwind's scale. text-xs (12px), text-sm (14px) and text-lg are used as they are. */
+  --text-field: 13px;
+  --text-key: 11px;
+  --text-initials: 9px;
+  --tracking-label: 0.06em;
+  --tracking-wordmark: -0.07em;
+
+  /* Motion: one short duration and one ease-out curve. Tailwind's transition-* utilities read these. */
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+
+  /* Elevation: level 0 is flat (no shadow), level 1 is the dialog (shadow-overlay). Nothing else. */
+  --shadow-overlay: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Type roles. Size, weight, tracking and case; color is a separate hierarchy decision. */
+@utility type-title {
+  @apply text-lg font-semibold tracking-tight; /* page, dialog and card titles */
+}
+@utility type-column {
+  @apply text-field font-semibold tracking-tight; /* column header */
+}
+@utility type-card-title {
+  @apply text-field leading-snug font-medium text-pretty; /* ticket title on a card */
+}
+@utility type-field {
+  @apply text-field; /* field values, activity text, helper text */
+}
+@utility type-label {
+  @apply text-xs font-medium tracking-label uppercase; /* section label */
+}
+@utility type-key {
+  @apply font-mono text-key; /* mono keys, branches and counts */
+}
+@utility type-initials {
+  @apply text-initials font-semibold; /* avatar initials, the only text under 12px besides type-key */
 }
 
 @layer base {

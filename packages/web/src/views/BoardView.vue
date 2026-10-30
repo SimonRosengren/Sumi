@@ -3,29 +3,34 @@ import type { Client } from "@sumi/client";
 import type { UpdateTicketInput, User } from "@sumi/contract";
 import { MAX_LANES } from "@sumi/contract";
 import { Check, LogOut, PencilLine, Plus, RefreshCw } from "@lucide/vue";
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import BoardColumn from "@/components/BoardColumn.vue";
 import NewTicketDialog from "@/components/NewTicketDialog.vue";
 import TicketDetail from "@/components/TicketDetail.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
+import ViewMenu from "@/components/ViewMenu.vue";
 import UserAvatar from "@/components/UserAvatar.vue";
 import AppWordmark from "@/components/AppWordmark.vue";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useBoard } from "@/composables/useBoard";
+import { useViewSettings } from "@/composables/useViewSettings";
 import { moveLane } from "@/lib/board";
 
 const props = defineProps<{ client: Client; me: User }>();
 defineEmits<{ signOut: [] }>();
 
 const board = useBoard(props.client);
+const view = useViewSettings(board.selected, board.lanes, board.columns);
 const creating = ref(false);
 const saveOpen = async (input: UpdateTicketInput) => (board.openKey.value ? board.update(board.openKey.value, input) : false);
 
 // Edit mode: lanes can be reordered, renamed, added and removed.
 const editingLanes = ref(false);
 const renamingId = ref<string | null>(null);
+// Editing needs every lane in reach, so hidden and empty lanes show again until you are done.
+const shownLanes = computed(() => (editingLanes.value ? board.lanes.value : view.visible.value));
 const asEntries = () => board.lanes.value.map((l) => ({ id: l.id, name: l.name }));
 
 function stopEditing() {
@@ -66,7 +71,7 @@ onUnmounted(() => stopWatching());
 <template>
   <TooltipProvider :delay-duration="150">
     <div class="flex min-h-screen flex-col">
-      <header class="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
+      <header class="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
         <AppWordmark />
         <nav
           v-if="board.projects.value.length > 0"
@@ -88,7 +93,7 @@ onUnmounted(() => stopWatching());
             <span class="hidden sm:inline">{{ p.name }}</span>
           </Button>
         </nav>
-        <div class="ml-auto flex items-center gap-0.5">
+        <div class="ml-auto flex items-center gap-1">
           <Button size="sm" class="mr-2" aria-label="New ticket" :disabled="!board.selected.value" @click="creating = true">
             <Plus aria-hidden="true" />
             <span class="hidden sm:inline">New ticket</span>
@@ -111,8 +116,18 @@ onUnmounted(() => stopWatching());
           <Button variant="ghost" size="icon-sm" aria-label="Refresh" :disabled="board.loading.value" @click="board.load()">
             <RefreshCw :class="{ 'animate-spin': board.loading.value }" aria-hidden="true" />
           </Button>
+          <ViewMenu
+            :lanes="board.lanes.value"
+            :columns="board.columns.value"
+            :hidden-ids="view.hiddenIds.value"
+            :hide-empty="view.hideEmpty.value"
+            :active="view.active.value"
+            @hide-empty="view.setHideEmpty"
+            @lane-hidden="view.setLaneHidden"
+            @reset="view.reset"
+          />
           <ThemeToggle />
-          <div class="mx-2 flex items-center gap-2 text-[13px]">
+          <div class="type-field mx-2 flex items-center gap-2">
             <UserAvatar :user="me" />
             <span class="text-muted-foreground hidden sm:inline">{{ me.name }}</span>
           </div>
@@ -122,7 +137,7 @@ onUnmounted(() => stopWatching());
         </div>
       </header>
 
-      <main class="flex flex-1 flex-col overflow-x-auto px-5 pt-2 pb-5">
+      <main class="flex flex-1 flex-col overflow-x-auto px-4 pt-2 pb-6 sm:px-6">
         <p v-if="board.error.value" role="alert" class="bg-destructive/10 text-destructive mb-4 rounded-md px-3 py-2 text-sm">
           {{ board.error.value }}
         </p>
@@ -131,16 +146,22 @@ onUnmounted(() => stopWatching());
           <Skeleton v-for="n in 5" :key="n" class="h-64 w-72 shrink-0 sm:w-auto sm:flex-1" />
         </div>
 
-        <div v-else-if="board.projects.value.length === 0 && !board.error.value" class="mx-auto mt-24 max-w-sm text-center">
-          <h2 class="text-lg font-semibold tracking-tight">No projects yet</h2>
-          <p class="text-muted-foreground mt-1.5 text-sm">
-            Create one with <code class="bg-muted rounded-sm px-1.5 py-0.5 font-mono text-xs">pnpm exec sumi project create SUMI "Sumi"</code>.
+        <div v-else-if="board.projects.value.length === 0 && !board.error.value" class="mx-auto mt-12 max-w-sm text-center">
+          <h2 class="type-title">No projects yet</h2>
+          <p class="text-muted-foreground mt-2 text-sm">
+            Create one with <code class="bg-muted rounded-sm px-2 py-1 font-mono text-xs">pnpm exec sumi project create SUMI "Sumi"</code>.
           </p>
+        </div>
+
+        <div v-else-if="shownLanes.length === 0 && board.lanes.value.length > 0" class="mx-auto mt-12 max-w-sm text-center">
+          <h2 class="type-title">No lanes to show</h2>
+          <p class="text-muted-foreground mt-2 text-sm">Every lane is hidden or empty.</p>
+          <Button variant="outline" size="sm" class="mt-4" @click="view.reset()">Show everything</Button>
         </div>
 
         <div v-else class="flex flex-1 gap-3 sm:min-w-[64rem]">
           <BoardColumn
-            v-for="lane in board.lanes.value"
+            v-for="lane in shownLanes"
             :key="lane.id"
             :lane="lane"
             :tickets="board.columns.value[lane.id] ?? []"
@@ -158,7 +179,7 @@ onUnmounted(() => stopWatching());
           <button
             v-if="editingLanes"
             type="button"
-            class="border-input text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/30 mt-8 flex w-24 shrink-0 cursor-pointer items-start justify-center rounded-lg border border-dashed pt-3 text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
+            class="border-input text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/40 active:bg-accent/70 mt-8 flex w-24 shrink-0 cursor-pointer items-start justify-center rounded-lg border border-dashed pt-3 text-field font-medium transition-colors outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
             :disabled="board.lanes.value.length >= MAX_LANES"
             aria-label="Add lane"
             @click="addLane"

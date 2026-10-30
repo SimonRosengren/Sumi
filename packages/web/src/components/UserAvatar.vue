@@ -15,7 +15,7 @@ defineProps<{ user: User }>();
       <Avatar :class="user.kind === 'agent' ? 'size-5 rounded-md' : 'size-5'" :data-kind="user.kind">
         <AvatarFallback
           :class="user.kind === 'agent' ? 'rounded-md border' : ''"
-          class="bg-secondary text-muted-foreground text-[9px] font-semibold"
+          class="bg-secondary text-muted-foreground type-initials"
         >
           <Bot v-if="user.kind === 'agent'" class="size-3" aria-hidden="true" />
           <template v-else>{{ initials(user.name) }}</template>

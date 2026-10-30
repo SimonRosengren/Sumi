@@ -44,16 +44,16 @@ async function submit() {
       <div class="flex justify-center"><AppWordmark /></div>
       <Card>
         <CardHeader>
-          <CardTitle class="text-lg font-semibold tracking-tight">Sign in</CardTitle>
+          <CardTitle class="type-title">Sign in</CardTitle>
           <CardDescription>
             <template v-if="github">Sign in with GitHub, or paste an API token.</template>
             <template v-else>
-              Paste an API token. Create one with <code class="bg-muted rounded-sm px-1.5 py-0.5 font-mono text-xs">pnpm bootstrap &lt;name&gt;</code>.
+              Paste an API token. Create one with <code class="bg-muted rounded-sm px-2 py-1 font-mono text-xs">pnpm bootstrap &lt;name&gt;</code>.
             </template>
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p v-if="error" role="alert" class="text-destructive mb-4 text-sm">{{ error }}</p>
+          <p v-if="error" role="alert" class="bg-destructive/10 text-destructive mb-4 rounded-md px-3 py-2 text-sm">{{ error }}</p>
           <template v-if="github">
             <Button as="a" :href="GITHUB_SIGN_IN_PATH" class="w-full">Continue with GitHub</Button>
             <div class="text-muted-foreground my-4 flex items-center gap-3 text-xs">
@@ -62,10 +62,10 @@ async function submit() {
           </template>
           <form class="space-y-4" @submit.prevent="submit">
             <div class="space-y-2">
-              <Label for="token" class="text-[13px]">API token</Label>
+              <Label for="token" class="type-field">API token</Label>
               <Input id="token" v-model="token" type="password" autocomplete="off" placeholder="sumi_…" class="font-mono" />
             </div>
-            <Button type="submit" class="w-full" :disabled="busy || !token.trim()">
+            <Button type="submit" class="w-full" :variant="github ? 'outline' : 'default'" :disabled="busy || !token.trim()">
               {{ busy ? "Checking…" : "Sign in" }}
             </Button>
           </form>
