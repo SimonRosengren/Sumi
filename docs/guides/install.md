@@ -48,5 +48,5 @@ MCP server configuration is in the README. Lost or leaked tokens: `sumi token li
 ## Operate it
 
 - Data lives in the `mongo-data` volume. Back up with `docker compose exec mongo mongodump --port 27018 --db sumi --archive > sumi.archive`.
-- Upgrade with `git pull && docker compose up -d --build`.
+- Upgrade with `git pull && docker compose up -d --build`. The new container applies any pending database migrations before it serves (recorded in the `migrations` collection; [ADR 0032](../adr/0032-versioned-migrations-on-start.md)). Take a backup first if the release adds one. If start-up fails with "Migration ... failed", the log says which; it is retried on the next start. A database upgraded by a newer version is refused by an older one: restore the backup instead.
 - Logs: `docker compose logs -f sumi`.

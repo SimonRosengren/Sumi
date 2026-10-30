@@ -77,18 +77,6 @@ export function collections(db: Db): Collections {
   };
 }
 
-export async function ensureIndexes(cols: Collections): Promise<void> {
-  await Promise.all([
-    cols.users.createIndex(
-      { githubId: 1 },
-      { unique: true, partialFilterExpression: { githubId: { $exists: true } } },
-    ),
-    cols.tickets.createIndex({ projectKey: 1, status: 1, number: 1 }),
-    cols.activity.createIndex({ ticketKey: 1, createdAt: -1 }),
-    cols.activity.createIndex({ projectKey: 1, createdAt: -1 }),
-  ]);
-}
-
 export type Tx = <T>(fn: (session: ClientSession) => Promise<T>) => Promise<T>;
 
 export function createTx(client: MongoClient): Tx {

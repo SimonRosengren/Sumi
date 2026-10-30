@@ -1,8 +1,9 @@
 import { MongoClient } from "mongodb";
 import { createActivityService } from "./activity";
 import { createCommentService } from "./comments";
-import { collections, createTx, ensureIndexes } from "./db";
+import { collections, createTx } from "./db";
 import { createGithubService } from "./github";
+import { runMigrations } from "./migrations";
 import { createProjectService } from "./projects";
 import { createTicketService } from "./tickets";
 import { createTokenService } from "./tokens";
@@ -23,7 +24,7 @@ export async function createCore({ uri, dbName }: CoreOptions) {
   await client.connect();
   const db = client.db(dbName);
   const cols = collections(db);
-  await ensureIndexes(cols);
+  await runMigrations(db);
   const ctx = { cols, tx: createTx(client) };
   const tickets = createTicketService(ctx);
 

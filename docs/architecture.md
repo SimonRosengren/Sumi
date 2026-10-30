@@ -19,7 +19,7 @@ Internal packages export TypeScript source and have no build step ([ADR 0011](ad
 
 ## core layout
 
-`createCore({ uri, dbName })` returns `{ users, projects, tickets, comments, tokens, activity }` services. One file per service in `packages/core/src`. Services take the acting user id as the first argument of every mutation, validate input with the contract schemas, and throw `NotFoundError`, `ConflictError` or `ValidationError` (all extend `SumiError`), which `api` maps to HTTP statuses. Mutations run in a transaction together with their activity entry ([ADR 0012](adr/0012-mongo-transactions-for-mutations.md)).
+`createCore({ uri, dbName })` returns `{ users, projects, tickets, comments, tokens, activity }` services. One file per service in `packages/core/src`. Services take the acting user id as the first argument of every mutation, validate input with the contract schemas, and throw `NotFoundError`, `ConflictError` or `ValidationError` (all extend `SumiError`), which `api` maps to HTTP statuses. Mutations run in a transaction together with their activity entry ([ADR 0012](adr/0012-mongo-transactions-for-mutations.md)). `createCore` first runs pending database migrations (`src/migrations.ts`, [ADR 0032](adr/0032-versioned-migrations-on-start.md)), which also create the indexes.
 
 ## api layout
 
