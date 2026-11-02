@@ -161,7 +161,8 @@ Temporary, in `AppWordmark.vue`: the Lucide `Origami` icon (stroke 2.5, text col
 | Panel | Full-width `bg-muted` panel with the product inside and a 3-column text block over one side (`type-lead`, "Features" list) |
 | Spacing | `gap-section` (160px) between sections, `gap-section-lg` (256px) from `md` |
 | Buttons | Pills: `rounded-full`, 48px (`h-12`). Primary is the accent. Secondary is outline |
-| Motion | The hero board demo may loop. It honors `prefers-reduced-motion` |
+| Gradient | `GrainGradient.vue`: abstract, grainy, animated WebGL gradient. Colors read from tokens. Hero: full strength, animated, no product. Panels: quiet, still (`animate` off, a different stage each), `--muted` surface, fades toward the text block |
+| Motion | Only the hero gradient animates. It pauses offscreen and honors `prefers-reduced-motion` (one still frame) |
 | Copy | Labels and short lines. No paragraphs |
 
 Tokens are copied from `packages/web/src/style.css`. `packages/site/test/tokens.test.ts` fails on drift and on raw colors in components.

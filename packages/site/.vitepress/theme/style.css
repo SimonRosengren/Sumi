@@ -41,7 +41,23 @@
   background: radial-gradient(60% 60% at 72% 50%, color-mix(in srgb, var(--primary) 14%, transparent), transparent);
 }
 @utility hero-mask {
-  mask-image: radial-gradient(ellipse 70% 95% at 76% 50%, black 35%, transparent 80%);
+  mask-image:
+    radial-gradient(ellipse 70% 95% at 76% 50%, black 35%, transparent 80%),
+    linear-gradient(to bottom, black 65%, transparent 100%);
+  mask-composite: intersect;
+}
+/* Inside panels the gradient dissolves toward the text block: below the visual on mobile, beside it from lg. */
+@utility grain-keep-left {
+  mask-image: linear-gradient(to bottom, black 25%, transparent 70%);
+  @media (min-width: 64rem) {
+    mask-image: linear-gradient(to right, black 30%, transparent 80%);
+  }
+}
+@utility grain-keep-right {
+  mask-image: linear-gradient(to bottom, black 25%, transparent 70%);
+  @media (min-width: 64rem) {
+    mask-image: linear-gradient(to left, black 30%, transparent 80%);
+  }
 }
 
 /* Scrolls but shows no scrollbar. */

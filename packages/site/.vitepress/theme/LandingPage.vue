@@ -2,7 +2,7 @@
 import { withBase } from "vitepress";
 import BoardMock from "./BoardMock.vue";
 import CopyCommand from "./CopyCommand.vue";
-import HeroGradient from "./HeroGradient.vue";
+import GrainGradient from "./GrainGradient.vue";
 import SiteFooter from "./SiteFooter.vue";
 import SiteHeader from "./SiteHeader.vue";
 import TerminalMock from "./TerminalMock.vue";
@@ -54,7 +54,7 @@ const docker = ["docker compose up -d --build", 'docker compose exec sumi npm ru
 
     <!-- Hero: atmosphere only. The product comes further down. Runs behind the transparent header. -->
     <section class="relative isolate -mt-16 overflow-hidden">
-      <HeroGradient class="absolute inset-0 -z-10" />
+      <GrainGradient class="absolute inset-0 -z-10" fade />
       <div class="mx-auto flex max-w-page items-center px-6 pt-16 lg:min-h-[min(100svh,56rem)]">
         <header class="flex flex-col gap-8 py-section lg:max-w-xl lg:py-0">
           <h1 class="type-hero m-0 border-0 p-0">Ticket tracking your agents can use</h1>
@@ -76,7 +76,16 @@ const docker = ["docker compose up -d --build", 'docker compose exec sumi npm ru
           >
             {{ s.title }}
           </h2>
-          <div class="relative grid grid-cols-12 items-stretch overflow-hidden lg:min-h-112 rounded-xl border border-border bg-muted">
+          <div class="relative isolate grid grid-cols-12 items-stretch overflow-hidden rounded-xl border border-border bg-muted lg:min-h-112">
+            <GrainGradient
+              class="absolute inset-0 -z-10"
+              :class="s.side === 'right' ? 'grain-keep-left' : 'grain-keep-right'"
+              surface="--muted"
+              :center="s.side === 'right' ? [0.3, 0.55] : [0.7, 0.55]"
+              :seed="20 + i * 40"
+              :strength="0.75"
+              :animate="false"
+            />
             <div
               class="col-span-12 row-start-1 flex items-center p-6 lg:p-12"
               :class="s.side === 'right' ? 'lg:pr-72' : 'lg:pl-72'"
@@ -97,7 +106,6 @@ const docker = ["docker compose up -d --build", 'docker compose exec sumi npm ru
                 <li v-for="f in s.features" :key="f">{{ f }}</li>
               </ul>
             </div>
-            <div class="pointer-events-none absolute inset-x-0 bottom-0 hidden h-24 bg-linear-to-t from-muted to-transparent lg:block" />
           </div>
         </section>
       </div>

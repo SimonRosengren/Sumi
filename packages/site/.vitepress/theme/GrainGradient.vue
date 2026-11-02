@@ -1,7 +1,20 @@
 <script setup lang="ts">
 // Abstract, grainy, animated gradient (WebGL, no dependencies). Colors come from the design tokens,
 // so a palette change or a theme toggle carries through. Falls back to the CSS glow without WebGL.
+// Used in the hero (animated, fades into the page) and inside the panels (still, surface "--muted").
 import { onMounted, onUnmounted, ref } from "vue";
+
+const props = withDefaults(
+  defineProps<{
+    surface?: string; // token the gradient fades into
+    center?: [number, number]; // glow position, 0 to 1
+    seed?: number; // offsets the pattern in time
+    strength?: number; // 0 to 1, how much of the panel the glow fills
+    fade?: boolean; // melt the edges into the page (hero)
+    animate?: boolean; // false draws one still frame, at `seed`
+  }>(),
+  { surface: "--background", center: () => [0.76, 0.5], seed: 14, strength: 1, fade: false, animate: true },
+);
 
 const canvas = ref<HTMLCanvasElement>();
 
@@ -11,6 +24,8 @@ precision highp float;
 uniform vec2 uRes;
 uniform float uTime;
 uniform vec3 uBg, uA, uB, uC;
+uniform vec2 uCenter;
+uniform float uStrength;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -26,7 +41,7 @@ float fbm(vec2 p) {
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uRes;
-  vec2 p = (uv - vec2(0.76, 0.5)) * vec2(uRes.x / uRes.y, 1.0);
+  vec2 p = (uv - uCenter) * vec2(uRes.x / uRes.y, 1.0);
   float t = uTime * 0.06;
 
   // Domain-warped flow: slow, smooth, never repeats.
@@ -35,7 +50,7 @@ void main() {
 
   // A luminous core, bent by the flow, with plenty of tonal variation inside it.
   float core = 1.0 - smoothstep(0.0, 0.75, length(p + (q - 0.5) * 0.8));
-  float body = clamp(core * 0.95 + (r - 0.5) * 1.15, 0.0, 1.0);
+  float body = clamp((core * 0.95 + (r - 0.5) * 1.15) * uStrength, 0.0, 1.0);
 
   // Grain dithers the tone, so the gradient dissolves into speckle instead of banding.
   float n = hash(gl_FragCoord.xy + floor(uTime * 12.0));
@@ -91,10 +106,12 @@ onMounted(() => {
 
   const u = (name: string) => gl.getUniformLocation(program, name);
   const uRes = u("uRes"), uTime = u("uTime"), uBg = u("uBg"), uA = u("uA"), uB = u("uB"), uC = u("uC");
+  gl.uniform2f(u("uCenter"), props.center[0], props.center[1]);
+  gl.uniform1f(u("uStrength"), props.strength);
 
   const setColors = () => {
     const root = document.documentElement;
-    gl.uniform3fv(uBg, token(root, "--background", [0.08, 0.08, 0.08]));
+    gl.uniform3fv(uBg, token(root, props.surface, [0.08, 0.08, 0.08]));
     gl.uniform3fv(uA, token(root, "--primary", [0.93, 0.46, 0.18]));
     gl.uniform3fv(uB, token(root, "--primary-ink", [0.7, 0.28, 0.05]));
     gl.uniform3fv(uC, token(root, "--status-in-review", [0.5, 0.4, 0.68]));
@@ -109,18 +126,19 @@ onMounted(() => {
   };
 
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const still = () => !props.animate || reduced.matches;
   let frame = 0;
   let visible = true;
   const start = performance.now();
 
   const draw = () => {
-    gl.uniform1f(uTime, reduced.matches ? 14 : 14 + (performance.now() - start) / 1000);
+    gl.uniform1f(uTime, still() ? props.seed : props.seed + (performance.now() - start) / 1000);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };
   const loop = () => {
     frame = 0;
     draw();
-    if (!reduced.matches && visible && !document.hidden) frame = requestAnimationFrame(loop);
+    if (!still() && visible && !document.hidden) frame = requestAnimationFrame(loop);
   };
   const kick = () => {
     if (!frame) frame = requestAnimationFrame(loop);
@@ -153,7 +171,7 @@ onUnmounted(() => stop());
 </script>
 
 <template>
-  <div class="hero-glow hero-mask pointer-events-none" aria-hidden="true">
+  <div class="hero-glow pointer-events-none" :class="fade && 'hero-mask'" aria-hidden="true">
     <canvas ref="canvas" class="block size-full" />
   </div>
 </template>
