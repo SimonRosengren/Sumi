@@ -125,6 +125,11 @@ export function createApp(core: Core, options: AppOptions = {}) {
     return c.json(project, 201);
   });
 
+  app.delete("/projects/:key", validate("param", z.object({ key: ProjectKeySchema })), async (c) => {
+    await core.projects.delete(c.get("user").id, c.req.valid("param").key);
+    return c.body(null, 204);
+  });
+
   app.put(
     "/projects/:key/lanes",
     validate("param", z.object({ key: ProjectKeySchema })),

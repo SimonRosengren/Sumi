@@ -15,6 +15,7 @@ export const OPERATIONS: Record<keyof Client, { cli: Surface; mcp: Surface }> = 
   createAgent: { cli: "agent create", mcp: { not: "humans only: agents cannot create agents" } },
   listProjects: { cli: "project list", mcp: "list_projects" },
   createProject: { cli: "project create", mcp: { not: "not in the web UI; a setup task for humans" } },
+  deleteProject: { cli: "project delete", mcp: { not: "humans only and irreversible; not in the web UI" } },
   setLanes: { cli: { not: "exposed as the finer-grained lane operations" }, mcp: { not: "exposed as the finer-grained lane operations" } },
   addLane: { cli: "project lane add", mcp: "add_lane" },
   renameLane: { cli: "project lane rename", mcp: "rename_lane" },

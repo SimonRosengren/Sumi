@@ -11,9 +11,10 @@ packages/
   cli/       commands (--json), built on client
   mcp/       MCP server (stdio), built on client
   web/       Vue 3 Kanban board, built on client
+  site/      public website (VitePress), renders docs/; no @sumi/* imports
 ```
 
-Packages are created as their milestone starts; see [roadmap.md](roadmap.md). `contract`, `core`, `api`, `client`, `cli`, `mcp` and `web` exist today.
+Packages are created as their milestone starts; see [roadmap.md](roadmap.md). `contract`, `core`, `api`, `client`, `cli`, `mcp`, `web` and `site` exist today.
 
 Internal packages export TypeScript source and have no build step ([ADR 0011](adr/0011-internal-packages-export-typescript-source.md)).
 
@@ -51,6 +52,7 @@ contract  <-  client  <-  cli | mcp | web
 - `core` depends on `contract` and the Mongo driver only.
 - `api` is the only package that imports `core`. It is built with Hono ([ADR 0009](adr/0009-hono-for-http-api.md)).
 - `client`, `cli`, `mcp`, `web` never import `core` or the database driver and reach everything through HTTP. `cli`, `mcp` and `web` share `client`.
+- `site` imports no other `@sumi/*` package and nothing imports it ([ADR 0035](adr/0035-public-website-with-vitepress.md)).
 - These rules are enforced by `no-restricted-imports` in `eslint.config.js` (`pnpm lint`).
 
 ## Deployment
@@ -66,4 +68,4 @@ Live updates: every mutation writes an activity entry -> Mongo change stream (`c
 ## Auth
 
 - All clients: `Authorization: Bearer <token>`, one token per user ([ADR 0013](adr/0013-api-token-authentication.md)). Agents are users with `kind: agent`, created by a human, so the activity log can attribute actions.
-- Humans in the browser: "Continue with GitHub" (allow-listed logins) or paste a token. GitHub sign-in ends by issuing an ordinary API token that the web app keeps in `localStorage`, so there is one auth mechanism ([ADR 0021](adr/0021-github-sign-in-and-token-management.md)). Tokens can be listed and revoked.
+- Humans in the browser: "Continue with GitHub" (allow-listed logins) or paste a token. GitHub sign-in ends by issuing an ordinary API token that the web app keeps in `localStorage`, so there is one auth mechanism ([ADR 0021](adr/0021-github-sign-in-and-token-management.md)). Tokens can be listed, created and revoked (CLI, and the key button in the board header, [ADR 0033](adr/0033-token-management-in-the-web-ui.md)).

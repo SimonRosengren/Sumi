@@ -106,6 +106,7 @@ export type Comment = z.infer<typeof CommentSchema>;
 export const ACTIVITY_ACTIONS = [
   "project.created",
   "project.lanes_updated",
+  "project.deleted",
   "ticket.created",
   "ticket.updated",
   "ticket.moved",

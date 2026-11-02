@@ -43,11 +43,16 @@ export async function recordActivity(
   return doc;
 }
 
-/** Throws unless the actor exists and is a human. Used for credential management. */
-export async function assertHuman(cols: Collections, id: string, session: ClientSession): Promise<void> {
+/** Throws unless the actor exists and is a human. Used for credential and project management. */
+export async function assertHuman(
+  cols: Collections,
+  id: string,
+  session: ClientSession,
+  message = "Only humans can manage agents and tokens",
+): Promise<void> {
   const actor = await cols.users.findOne({ _id: id }, { session });
   if (!actor) throw new NotFoundError(`Actor ${id} not found`);
-  if (actor.kind !== "human") throw new ForbiddenError("Only humans can manage agents and tokens");
+  if (actor.kind !== "human") throw new ForbiddenError(message);
 }
 
 export function lanesOf(project: ProjectDoc): Lane[] {

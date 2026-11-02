@@ -50,6 +50,7 @@ Definition of done: `pnpm lint`, `pnpm typecheck` and `pnpm test` all pass.
 7. **Everything in the UI exists for agents.** Whatever a human can do in the web UI is also a CLI command and an MCP tool, added in the same change. The CLI and MCP may do more than the UI, never less. Register every client method in `OPERATIONS` (`packages/client/src/operations.ts`); typecheck and the cli/mcp tests enforce it ([ADR 0029](docs/adr/0029-ui-features-exist-in-cli-and-mcp.md)).
 8. **Prefer enforceable rules over prose.** If a rule can be a lint rule, type, or test, make it one.
 9. **Keep it minimal.** No speculative features, options, or abstractions.
+10. **Less text is better. No prose.** Applies to UI, website, docs, ADRs and your replies. Use labels, short lines, tables and code. One sentence beats a paragraph; cut anything that does not change what the reader does.
 
 ## Conventions
 

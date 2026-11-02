@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ConflictError, NotFoundError, ValidationError } from "../src";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../src";
 import { seed, useCore } from "./helpers";
 
 const core = useCore();
@@ -72,5 +72,54 @@ describe("projects", () => {
       NotFoundError,
     );
     expect((await core().projects.list()).map((p) => p.key)).not.toContain("NOPE");
+  });
+});
+
+describe("deleting a project", () => {
+  it("removes the project, its tickets and its activity, and leaves one entry", async () => {
+    const alice = await core().users.create({ kind: "human", name: "Alice" });
+    await core().projects.create(alice.id, { key: "GONE", name: "Gone" });
+    await core().projects.create(alice.id, { key: "STAY", name: "Stay" });
+    const gone = await core().tickets.create(alice.id, { projectKey: "GONE", title: "Doomed" });
+    await core().comments.add(alice.id, gone.key, { body: "bye" });
+    const stay = await core().tickets.create(alice.id, { projectKey: "STAY", title: "Kept" });
+
+    await core().projects.delete(alice.id, "GONE");
+
+    expect((await core().projects.list()).map((p) => p.key)).not.toContain("GONE");
+    expect(await core().tickets.get(gone.key)).toBeNull();
+    await expect(core().comments.list(gone.key)).rejects.toBeInstanceOf(NotFoundError);
+    const log = await core().activity.list({ projectKey: "GONE" });
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({ actorId: alice.id, action: "project.deleted", data: { name: "Gone", tickets: 1 } });
+    expect(await core().tickets.get(stay.key)).not.toBeNull();
+    expect(await core().activity.list({ projectKey: "STAY" })).toHaveLength(2);
+  });
+
+  it("lets the key be reused with fresh ticket numbers and no old comments", async () => {
+    const alice = await core().users.create({ kind: "human", name: "Alice" });
+    await core().projects.create(alice.id, { key: "AGAIN", name: "One" });
+    const first = await core().tickets.create(alice.id, { projectKey: "AGAIN", title: "Old" });
+    await core().comments.add(alice.id, first.key, { body: "old comment" });
+    await core().projects.delete(alice.id, "AGAIN");
+
+    await core().projects.create(alice.id, { key: "AGAIN", name: "Two" });
+    const second = await core().tickets.create(alice.id, { projectKey: "AGAIN", title: "New" });
+    expect(second.key).toBe(first.key);
+    expect(await core().comments.list(second.key)).toEqual([]);
+
+    await core().projects.delete(alice.id, "AGAIN");
+    const log = await core().activity.list({ projectKey: "AGAIN" });
+    expect(log.map((e) => e.action)).toEqual(["project.deleted", "project.deleted"]);
+  });
+
+  it("is for humans, existing projects and valid keys", async () => {
+    const alice = await core().users.create({ kind: "human", name: "Alice" });
+    const bot = await core().users.create({ kind: "agent", name: "Bot" });
+    await core().projects.create(alice.id, { key: "SAFE", name: "Safe" });
+    await expect(core().projects.delete(bot.id, "SAFE")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(core().projects.delete(alice.id, "NOPE")).rejects.toBeInstanceOf(NotFoundError);
+    await expect(core().projects.delete(alice.id, "bad key")).rejects.toBeInstanceOf(ValidationError);
+    expect((await core().projects.list()).map((p) => p.key)).toContain("SAFE");
   });
 });

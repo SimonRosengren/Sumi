@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "exactOptionalPropertyTypes": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "jsx": "preserve",
+    "verbatimModuleSyntax": true
+  },
+  "include": [".vitepress/**/*.ts", ".vitepress/**/*.vue", "test/**/*.ts"],
+  "exclude": [".vitepress/cache/**", ".vitepress/dist/**"]
+}

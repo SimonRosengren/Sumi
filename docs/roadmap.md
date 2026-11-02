@@ -15,3 +15,6 @@
 - [x] 9. Create and edit tickets in the web UI
 - [x] 10. Comments on tickets
 - [x] 11. Editable lanes (add, rename, remove, reorder from the board)
+- [x] 12. Manage API tokens in the web UI
+- [x] 13. Delete a project (CLI and API)
+- [ ] 14. Public website (SUMI-17): scaffold done, demo, SEO files and deploy open

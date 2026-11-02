@@ -100,7 +100,7 @@ function commit() {
 
 <template>
   <section
-    class="flex w-72 shrink-0 flex-col gap-2 rounded-lg transition-colors sm:w-auto sm:min-w-0 sm:flex-1"
+    class="flex min-h-0 w-72 shrink-0 flex-col gap-2 rounded-lg transition-colors sm:w-auto sm:min-w-0 sm:flex-1"
     :class="{ 'bg-primary/12': laneOver }"
     :data-status="lane.id"
     @dragover="dragOverLane"
@@ -150,7 +150,7 @@ function commit() {
       </template>
     </header>
     <div
-      class="bg-muted/50 flex min-h-24 flex-1 flex-col gap-2 rounded-lg border border-transparent p-2 transition-colors"
+      class="bg-muted/50 flex min-h-24 flex-1 flex-col gap-2 no-scrollbar overflow-y-auto rounded-lg border border-transparent p-2 transition-colors"
       :class="{ 'bg-primary/12 border-primary/40': over }"
       data-dropzone
       @dragover="dragOverTickets"

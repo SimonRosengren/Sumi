@@ -13,6 +13,7 @@ COPY packages/client/package.json packages/client/
 COPY packages/cli/package.json packages/cli/
 COPY packages/mcp/package.json packages/mcp/
 COPY packages/web/package.json packages/web/
+COPY packages/site/package.json packages/site/
 RUN pnpm install --frozen-lockfile
 
 COPY tsconfig.base.json ./

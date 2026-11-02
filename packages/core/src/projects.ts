@@ -11,7 +11,7 @@ import {
 import type { ProjectDoc } from "./db";
 import { isDuplicateKey } from "./db";
 import { ConflictError, NotFoundError, ValidationError, parse } from "./errors";
-import { assertUserExists, lanesOf, recordActivity, type Ctx } from "./shared";
+import { assertHuman, assertUserExists, lanesOf, recordActivity, type Ctx } from "./shared";
 
 function toProject(doc: ProjectDoc): Project {
   return { key: doc._id, name: doc.name, lanes: lanesOf(doc), createdAt: doc.createdAt };
@@ -111,6 +111,28 @@ export function createProjectService({ cols, tx }: Ctx) {
           data: { lanes },
         });
         return toProject(updated);
+      });
+    },
+
+    /**
+     * A human deletes a project with its tickets and its activity entries, comments included (ADR 0034). The
+     * only trace is one `project.deleted` entry. The key can then be used again.
+     */
+    async delete(actorId: string, projectKey: string): Promise<void> {
+      parse(ProjectKeySchema, projectKey);
+      await tx(async (session) => {
+        await assertHuman(cols, actorId, session, "Only humans can delete projects");
+        const project = await cols.projects.findOneAndDelete({ _id: projectKey }, { session });
+        if (!project) throw new NotFoundError(`Project ${projectKey} not found`);
+        const { deletedCount: tickets } = await cols.tickets.deleteMany({ projectKey }, { session });
+        // Keep the trace of an earlier deletion of a project that had the same key.
+        await cols.activity.deleteMany({ projectKey, action: { $ne: "project.deleted" } }, { session });
+        await recordActivity(cols, session, {
+          actorId,
+          action: "project.deleted",
+          projectKey,
+          data: { name: project.name, tickets },
+        });
       });
     },
 

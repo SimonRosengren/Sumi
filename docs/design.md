@@ -44,6 +44,8 @@ Every view has one thing it is for. Rank each element as **primary** (what the v
 | Board | the "New ticket" button, ticket titles | column headers, project nav, header tools | keys, counts, priority, PR and branch, "No tickets" |
 | Ticket detail | the title (and Save while editing) | fields, description, comments, Comment button, section labels | key, links, timestamps, activity |
 | New ticket dialog | the Create ticket button | title, description and status fields | the hint under the title, field labels |
+| API tokens dialog | the Create token button | the token list, Copy | ids, created times, Revoke |
+| CLI cheat sheet dialog | the command list | section labels, the Copy buttons | what each command does, the setup hint |
 | Sign in | Continue with GitHub (the token Sign in button when GitHub is off) | the token field and its label | the hint under the title |
 
 Rules:
@@ -131,9 +133,12 @@ Temporary, in `AppWordmark.vue`: the Lucide `Origami` icon (stroke 2.5, text col
 ## Interaction
 
 - The header has no divider or background of its own: it and the board are one seamless surface (`bg-background`). Keep it that way.
+- The board fills the viewport height and never grows with its content: a lane that is full scrolls inside its tray (`overflow-y-auto no-scrollbar`, the scrollbar is hidden).
 - Cards are draggable between columns; the target column gets an accent tint and border while a card is over it. Cards are also keyboard-focusable and open the detail panel with Enter or click.
 - The ticket detail is a centered modal (nearly full width on narrow screens, scrolls when tall) with native `<select>` fields styled like inputs (custom chevron, `appearance-none`). Titles and descriptions are edited in place in an edit mode (pencil button, Save/Cancel), and tickets are created from the "New ticket" button in the header, in a modal of the same look ([ADR 0026](adr/0026-create-and-edit-tickets-in-the-web-ui.md)). Anything draggable also needs a non-drag way to do it (the status select), because touch screens cannot drag.
 - **View options** is a popover on the sliders button next to the theme toggle: a "Hide empty lanes" checkbox and one checkbox per lane. The row is the whole checkbox (accent fill when checked, the same job as other selected states), counts are mono, and the button takes the `bg-primary/12` tint while a setting hides something. Settings are per browser, stored in `localStorage` (`sumi.view`), and the board shows every lane again while editing lanes ([ADR 0030](adr/0030-view-settings-stay-in-the-browser.md)).
+- **API tokens** is a dialog of the same look, opened from the key button in the header. Primary action: Create token. A new token is shown once in a muted box with a Copy button; each row has a quiet Revoke button, and the token this browser uses reads "Revoke and sign out" ([ADR 0033](adr/0033-token-management-in-the-web-ui.md)).
+- **CLI cheat sheet** is a read-only dialog of the same look, opened from the terminal button next to the key button. It starts with a "Run a command" block (the `SUMI_URL` of this site's `/api`, a `SUMI_TOKEN` placeholder and one full command), then lists the commands people use most (tickets, projects and lanes, agents), each written in full (`pnpm exec sumi ...`) in a mono box (`select-all`) with a quiet Copy button and a one-line note, using the selected project's key in the examples. It has no primary action; the close button is enough. It is static help, not an operation, so it has no CLI or MCP counterpart (`sumi --help` is the CLI's own).
 - **Edit lanes** is a mode, switched on by the "Edit lanes" header button (which becomes "Done"). In it, lane headers show a grip, a pen (rename in place) and a trash button, can be dragged by their name (the target lane gets the accent tint), and a slim dashed "+ Add" placeholder sits at the far right ([ADR 0028](adr/0028-editable-lanes.md)). Lanes have no non-drag way to be reordered yet.
 
 ## Components
@@ -142,6 +147,24 @@ Temporary, in `AppWordmark.vue`: the Lucide `Origami` icon (stroke 2.5, text col
 - Our own components are in `src/components/` and `src/views/`. Component names must be multi-word.
 - Icons: `@lucide/vue`.
 - The generated components import `cn` from the `cn` package (shadcn's replacement for `clsx` + `tailwind-merge`).
+
+## Marketing site
+
+`packages/site` ([ADR 0035](adr/0035-public-website-with-vitepress.md)). Reference: vercel.com. Same tokens, fonts and state model as the app, plus:
+
+| Tier | Rule |
+| --- | --- |
+| Page | `max-w-page` (1200px), `px-6`. Wider than the app |
+| Header | Sticky, transparent, gets `bg-background` and a hairline once scrolled |
+| Hero | Viewport tall. Left: `type-hero` title, one line, two buttons. Right: the product, bleeding off the edge |
+| Headline | `type-headline` (up to 56px, semibold, -0.05em). Alternates left and right per section |
+| Panel | Full-width `bg-muted` panel with the product inside and a 3-column text block over one side (`type-lead`, "Features" list) |
+| Spacing | `gap-section` (160px) between sections, `gap-section-lg` (256px) from `md` |
+| Buttons | Pills: `rounded-full`, 48px (`h-12`). Primary is the accent. Secondary is outline |
+| Motion | The hero board demo may loop. It honors `prefers-reduced-motion` |
+| Copy | Labels and short lines. No paragraphs |
+
+Tokens are copied from `packages/web/src/style.css`. `packages/site/test/tokens.test.ts` fails on drift and on raw colors in components.
 
 ## Checking a change visually
 

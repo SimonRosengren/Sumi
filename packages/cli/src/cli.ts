@@ -152,6 +152,15 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
       print(created, () => `Created ${formatProjectLine(created)}`);
     });
 
+  project
+    .command("delete")
+    .description("Delete a project with all its tickets and activity (humans only). This cannot be undone.")
+    .argument("<key>")
+    .action(async (key: string) => {
+      await api().deleteProject(key);
+      print({ deleted: key }, () => `Deleted ${key}`);
+    });
+
   const lane = project
     .command("lane")
     .description("Manage a project's lanes (board columns). A ticket's status is the id of its lane.");

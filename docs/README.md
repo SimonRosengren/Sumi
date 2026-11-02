@@ -6,7 +6,7 @@
 | [domain.md](domain.md) | Entities, statuses, invariants, glossary |
 | [design.md](design.md) | Web UI palette, typography, spacing, motion, state model and component rules |
 | [roadmap.md](roadmap.md) | Milestones and status |
-| [adr/](adr/) | Architecture Decision Records (append-only) |
+| [adr/](adr/0001-record-architecture-decisions.md) | Architecture Decision Records (append-only) |
 | [guides/adding-an-operation.md](guides/adding-an-operation.md) | How to add a feature end to end |
 | [guides/install.md](guides/install.md) | Running a team instance (Docker, GitHub sign-in, webhook) |
 | [guides/testing.md](guides/testing.md) | Testing approach |

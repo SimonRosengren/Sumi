@@ -33,3 +33,14 @@ export function takeSignInResult(): { token?: string; error?: string } {
   history.replaceState(null, "", location.pathname + location.search);
   return { ...(token && { token }), ...(error && { error }) };
 }
+
+/**
+ * The public id the API lists a token under: the first 16 hex characters of its SHA-256 (ADR 0021).
+ * Lets the token list point out the one this browser uses. Null where Web Crypto is missing
+ * (plain HTTP away from localhost), in which case nothing is marked.
+ */
+export async function tokenId(token: string): Promise<string | null> {
+  if (!globalThis.crypto?.subtle) return null;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+}

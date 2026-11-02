@@ -211,6 +211,8 @@ export function createClient({ url, token, fetch: fetchImpl = fetch }: ClientOpt
     listProjects,
     createProject: (input: CreateProjectInput): Promise<Project> =>
       request("POST", "/projects", ProjectSchema, { body: input }),
+    /** Deletes a project with its tickets and activity (humans only). Cannot be undone. */
+    deleteProject: (projectKey: string): Promise<void> => request("DELETE", `/projects/${projectKey}`, z.undefined()),
     /** Replaces the project's lanes (ids keep existing lanes, no id adds one, left out ones are deleted). */
     setLanes,
     /** Adds a lane at the 1-based `position` (default: last). Resolves to the project with its new lanes. */

@@ -1,0 +1,84 @@
+/*
+ * Tailwind without preflight, so it does not fight VitePress's default theme on the docs pages (ADR 0035).
+ * Utilities are deliberately unlayered: VitePress's own CSS is unlayered, and layered rules always lose to it.
+ */
+@layer theme;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "./tokens.css";
+
+@source "./";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Marketing tier (docs/design.md, "Marketing site"): wider page, bigger type, larger section spacing than the app. */
+@theme {
+  --container-page: 75rem;
+  --text-hero: clamp(2.5rem, 1.25rem + 5vw, 4rem);
+  --text-hero--line-height: 1;
+  --text-headline: clamp(2rem, 1rem + 3.5vw, 3.5rem);
+  --text-headline--line-height: 1;
+  --tracking-hero: -0.06em;
+  --tracking-headline: -0.05em;
+  --spacing-section: 10rem;
+  --spacing-section-lg: 16rem;
+}
+
+@utility type-hero {
+  @apply text-hero font-normal tracking-hero text-balance;
+}
+@utility type-headline {
+  @apply text-headline font-semibold tracking-headline text-balance;
+}
+@utility type-lead {
+  @apply text-2xl font-medium tracking-tight text-balance;
+}
+
+/* CSS fallback behind the hero shader, and the mask that melts its edges into the page. */
+@utility hero-glow {
+  background: radial-gradient(60% 60% at 72% 50%, color-mix(in srgb, var(--primary) 14%, transparent), transparent);
+}
+@utility hero-mask {
+  mask-image: radial-gradient(ellipse 70% 95% at 76% 50%, black 35%, transparent 80%);
+}
+
+/* Scrolls but shows no scrollbar. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The docs pages use VitePress's default theme, mapped onto our tokens. */
+:root {
+  --vp-font-family-base: var(--font-sans);
+  --vp-font-family-mono: var(--font-mono);
+  --vp-c-bg: var(--background);
+  --vp-c-bg-alt: var(--muted);
+  --vp-c-bg-elv: var(--popover);
+  --vp-c-bg-soft: var(--muted);
+  --vp-c-divider: var(--border);
+  --vp-c-gutter: var(--border);
+  --vp-c-text-1: var(--foreground);
+  --vp-c-text-2: var(--muted-foreground);
+  --vp-c-text-3: var(--muted-foreground);
+  --vp-c-brand-1: var(--primary-ink);
+  --vp-c-brand-2: var(--primary-ink);
+  --vp-c-brand-3: var(--primary);
+  --vp-c-brand-soft: color-mix(in srgb, var(--primary) 12%, transparent);
+  --vp-button-brand-bg: var(--primary);
+  --vp-button-brand-hover-bg: color-mix(in srgb, var(--primary) 90%, transparent);
+  --vp-button-brand-active-bg: color-mix(in srgb, var(--primary) 80%, transparent);
+  --vp-button-brand-text: var(--primary-foreground);
+  --vp-button-brand-hover-text: var(--primary-foreground);
+  --vp-button-brand-active-text: var(--primary-foreground);
+  --vp-code-block-bg: var(--card);
+  --vp-code-bg: var(--muted);
+}
+
+body {
+  font-feature-settings: "ss01", "cv11";
+}

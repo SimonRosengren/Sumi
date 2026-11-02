@@ -1,0 +1,25 @@
+{
+  "hash": "0aee081c",
+  "configHash": "b0d24803",
+  "lockfileHash": "6172ea90",
+  "browserHash": "99013861",
+  "optimized": {
+    "vue": {
+      "src": "../../../../../node_modules/.pnpm/vue@3.5.44_typescript@6.0.3/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+      "file": "vue.js",
+      "fileHash": "b7d3f18e",
+      "needsInterop": false
+    },
+    "@lucide/vue": {
+      "src": "../../../../../node_modules/.pnpm/@lucide+vue@1.63.0_vue@3.5.44_typescript@6.0.3_/node_modules/@lucide/vue/dist/esm/lucide-vue.mjs",
+      "file": "@lucide_vue.js",
+      "fileHash": "3d82a69f",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-J4WEZ4PM": {
+      "file": "chunk-J4WEZ4PM.js"
+    }
+  }
+}

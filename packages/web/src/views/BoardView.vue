@@ -2,10 +2,12 @@
 import type { Client } from "@sumi/client";
 import type { UpdateTicketInput, User } from "@sumi/contract";
 import { MAX_LANES } from "@sumi/contract";
-import { Check, LogOut, PencilLine, Plus, RefreshCw } from "@lucide/vue";
+import { Check, KeyRound, LogOut, Terminal, PencilLine, Plus, RefreshCw } from "@lucide/vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import BoardColumn from "@/components/BoardColumn.vue";
+import CheatSheetDialog from "@/components/CheatSheetDialog.vue";
 import NewTicketDialog from "@/components/NewTicketDialog.vue";
+import TokensDialog from "@/components/TokensDialog.vue";
 import TicketDetail from "@/components/TicketDetail.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import ViewMenu from "@/components/ViewMenu.vue";
@@ -19,11 +21,13 @@ import { useViewSettings } from "@/composables/useViewSettings";
 import { moveLane } from "@/lib/board";
 
 const props = defineProps<{ client: Client; me: User }>();
-defineEmits<{ signOut: [] }>();
+const emit = defineEmits<{ signOut: [] }>();
 
 const board = useBoard(props.client);
 const view = useViewSettings(board.selected, board.lanes, board.columns);
 const creating = ref(false);
+const managingTokens = ref(false);
+const showingCheatSheet = ref(false);
 const saveOpen = async (input: UpdateTicketInput) => (board.openKey.value ? board.update(board.openKey.value, input) : false);
 
 // Edit mode: lanes can be reordered, renamed, added and removed.
@@ -70,7 +74,7 @@ onUnmounted(() => stopWatching());
 
 <template>
   <TooltipProvider :delay-duration="150">
-    <div class="flex min-h-screen flex-col">
+    <div class="flex h-dvh flex-col">
       <header class="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
         <AppWordmark />
         <nav
@@ -127,17 +131,23 @@ onUnmounted(() => stopWatching());
             @reset="view.reset"
           />
           <ThemeToggle />
+          <Button variant="ghost" size="icon-sm" aria-label="CLI cheat sheet" title="CLI cheat sheet" @click="showingCheatSheet = true">
+            <Terminal aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" aria-label="API tokens" title="API tokens" @click="managingTokens = true">
+            <KeyRound aria-hidden="true" />
+          </Button>
           <div class="type-field mx-2 flex items-center gap-2">
             <UserAvatar :user="me" />
             <span class="text-muted-foreground hidden sm:inline">{{ me.name }}</span>
           </div>
-          <Button variant="ghost" size="icon-sm" aria-label="Sign out" @click="$emit('signOut')">
+          <Button variant="ghost" size="icon-sm" aria-label="Sign out" @click="emit('signOut')">
             <LogOut aria-hidden="true" />
           </Button>
         </div>
       </header>
 
-      <main class="flex flex-1 flex-col overflow-x-auto px-4 pt-2 pb-6 sm:px-6">
+      <main class="flex min-h-0 flex-1 flex-col overflow-x-auto px-4 pt-2 pb-6 sm:px-6">
         <p v-if="board.error.value" role="alert" class="bg-destructive/10 text-destructive mb-4 rounded-md px-3 py-2 text-sm">
           {{ board.error.value }}
         </p>
@@ -159,7 +169,7 @@ onUnmounted(() => stopWatching());
           <Button variant="outline" size="sm" class="mt-4" @click="view.reset()">Show everything</Button>
         </div>
 
-        <div v-else class="flex flex-1 gap-3 sm:min-w-[64rem]">
+        <div v-else class="flex min-h-0 flex-1 gap-3 sm:min-w-[64rem]">
           <BoardColumn
             v-for="lane in shownLanes"
             :key="lane.id"
@@ -204,6 +214,8 @@ onUnmounted(() => stopWatching());
       />
 
       <NewTicketDialog :open="creating" :project-key="board.selected.value" :lanes="board.lanes.value" :create="board.create" @close="creating = false" />
+      <CheatSheetDialog :open="showingCheatSheet" :project-key="board.selected.value" @close="showingCheatSheet = false" />
+      <TokensDialog :open="managingTokens" :client="client" @close="managingTokens = false" @sign-out="emit('signOut')" />
     </div>
   </TooltipProvider>
 </template>

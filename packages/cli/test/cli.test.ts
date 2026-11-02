@@ -90,6 +90,23 @@ describe("whoami and agents", () => {
   });
 });
 
+describe("project delete", () => {
+  it("deletes a project, humans only", async () => {
+    await sumi(["project", "create", "CLIDEL", "Delete me"]);
+    const { token } = await sumiJson(AgentCreatedSchema, ["agent", "create", "Deleter"]);
+
+    const denied = await sumi(["project", "delete", "CLIDEL"], { SUMI_TOKEN: token });
+    expect(denied.code).toBe(1);
+    expect(denied.err).toContain("Only humans");
+
+    expect(await sumi(["project", "delete", "CLIDEL"])).toMatchObject({ code: 0, out: "Deleted CLIDEL\n" });
+    expect((await sumi(["project", "list"])).out).not.toContain("CLIDEL");
+    expect((await sumi(["project", "delete", "CLIDEL"])).err).toContain("not found");
+    await sumi(["project", "create", "CLIDEL", "Again"]);
+    expect(await sumiJson(z.object({ deleted: z.string() }), ["project", "delete", "CLIDEL"])).toEqual({ deleted: "CLIDEL" });
+  });
+});
+
 describe("tokens", () => {
   it("rotates an agent's token: create, list, revoke", async () => {
     const { user, token: first } = await sumiJson(AgentCreatedSchema, ["agent", "create", "Rotating"]);

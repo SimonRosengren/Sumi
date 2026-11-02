@@ -325,6 +325,29 @@ describe("tokens", () => {
   });
 });
 
+describe("DELETE /projects/:key", () => {
+  it("deletes a project and its tickets, humans only", async () => {
+    const h = api();
+    await h.call("POST", "/projects", { body: { key: "DEL", name: "Delete me" } });
+    await h.call("POST", "/tickets", { body: { projectKey: "DEL", title: "Doomed" } });
+    const agent = AgentCreatedSchema.parse((await h.call("POST", "/agents", { body: { name: "Deleter" } })).body);
+
+    expect((await h.call("DELETE", "/projects/DEL", { token: agent.token })).status).toBe(403);
+    expect((await h.call("DELETE", "/projects/DEL", { token: null })).status).toBe(401);
+    expect((await h.call("DELETE", "/projects/bad key")).status).toBe(400);
+
+    expect((await h.call("DELETE", "/projects/DEL")).status).toBe(204);
+    expect((await h.call("GET", "/tickets/DEL-1")).status).toBe(404);
+    expect((await h.call("GET", "/tickets?projectKey=DEL")).body).toEqual([]);
+    const projects = z.array(ProjectSchema).parse((await h.call("GET", "/projects")).body);
+    expect(projects.map((p) => p.key)).not.toContain("DEL");
+    const log = await h.call("GET", "/activity?projectKey=DEL");
+    expect(log.body).toHaveLength(1);
+    expect(log.body[0]).toMatchObject({ actorId: h.aliceId, action: "project.deleted", data: { tickets: 1 } });
+    expect((await h.call("DELETE", "/projects/DEL")).status).toBe(404);
+  });
+});
+
 describe("GET /auth/config", () => {
   it("is public and says GitHub sign-in is off by default", async () => {
     const res = await api().call("GET", "/auth/config", { token: null });

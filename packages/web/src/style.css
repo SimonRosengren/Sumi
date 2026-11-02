@@ -167,6 +167,14 @@
   @apply text-initials font-semibold; /* avatar initials, the only text under 12px besides type-key */
 }
 
+/* Scrolls but shows no scrollbar (the lane trays). */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
