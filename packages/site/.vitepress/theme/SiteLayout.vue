@@ -2,7 +2,7 @@
 import DefaultTheme from "vitepress/theme";
 import { useData } from "vitepress";
 import LandingPage from "./LandingPage.vue";
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/vue"
 
 const { frontmatter } = useData();
 </script>
