@@ -1,4 +1,4 @@
-import type { ActivityEntry, Comment, Lane, Project, Ticket, TokenInfo, User } from "@sumi/contract";
+import type { ActivityEntry, Board, Comment, Lane, Project, Ticket, TokenInfo, User } from "@sumi/contract";
 
 export function formatTicketLine(t: Ticket): string {
   return `${t.key}  ${t.status.padEnd(11)}  ${(t.priority ?? "-").padEnd(6)}  ${t.title}`;
@@ -7,6 +7,7 @@ export function formatTicketLine(t: Ticket): string {
 export function formatTicket(t: Ticket): string {
   const lines = [
     `${t.key}  ${t.title}`,
+    `board:    ${t.boardId}`,
     `status:   ${t.status}`,
     `priority: ${t.priority ?? "-"}`,
     `assignee: ${t.assigneeId ?? "-"}`,
@@ -20,6 +21,8 @@ export function formatTicket(t: Ticket): string {
 }
 
 export const formatProjectLine = (p: Project): string => `${p.key}  ${p.name}`;
+
+export const formatBoardLine = (b: Board): string => `${b.id}  ${b.projectKey}  ${b.name}`;
 
 export const formatLaneLine = (l: Lane): string => `${l.id.padEnd(12)}  ${l.name}`;
 

@@ -111,6 +111,16 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
+  /* shadcn sidebar uses the same surfaces and states as other controls. */
+  --color-sidebar: var(--background);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-primary: var(--primary);
+  --color-sidebar-primary-foreground: var(--primary-foreground);
+  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent-foreground: var(--accent-foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--ring);
+
   /* Meaning, not decoration: neutral until work starts, then blue, violet, green. */
   --color-status-backlog: var(--status-backlog);
   --color-status-todo: var(--status-todo);

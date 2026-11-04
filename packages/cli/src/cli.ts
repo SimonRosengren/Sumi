@@ -9,6 +9,7 @@ import { Command, CommanderError, InvalidArgumentError, Option } from "commander
 import { ApiError, createClient, type Client } from "@sumi/client";
 import {
   formatActivityLine,
+  formatBoardLine,
   formatComment,
   formatLaneLine,
   formatProjectLine,
@@ -161,64 +162,90 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
       print({ deleted: key }, () => `Deleted ${key}`);
     });
 
-  const lane = project
+  const board = program.command("board").description("Manage boards within a project");
+  const lane = board
     .command("lane")
-    .description("Manage a project's lanes (board columns). A ticket's status is the id of its lane.");
+    .description("Manage a board's lanes (columns). A ticket's status is the id of its lane.");
   const printLanes = (lanes: Lane[]) => print(lanes, () => lanes.map(formatLaneLine).join("\n"));
   lane
     .command("list")
-    .description("List a project's lanes, left to right")
-    .argument("<project>")
-    .action(async (key: string) => {
-      const found = (await api().listProjects()).find((p) => p.key === key);
-      if (!found) throw new ApiError("not_found", `Project ${key} not found`);
-      printLanes(found.lanes);
+    .description("List a board's lanes, left to right")
+    .argument("<board>", "board id, see `sumi board list <project>`")
+    .action(async (id: string) => {
+      printLanes((await api().getBoard(id)).lanes);
     });
   lane
     .command("add")
     .description("Add a lane. Its id is made from the name. It goes last unless --position is given.")
-    .argument("<project>")
+    .argument("<board>")
     .argument("<name>")
     .option("--position <n>", "1 is the leftmost lane", positiveInt)
-    .action(async (key: string, name: string, o: { position?: number }) =>
-      printLanes((await api().addLane(key, name, o.position)).lanes),
+    .action(async (boardId: string, name: string, o: { position?: number }) =>
+      printLanes((await api().addLane(boardId, name, o.position)).lanes),
     );
   lane
     .command("rename")
     .description("Rename a lane. Its id, and so its tickets, stay as they are.")
-    .argument("<project>")
-    .argument("<lane>", "lane id, see `sumi project lane list <project>`")
+    .argument("<board>")
+    .argument("<lane>", "lane id, see `sumi board lane list <board>`")
     .argument("<name>")
-    .action(async (key: string, laneId: string, name: string) =>
-      printLanes((await api().renameLane(key, laneId, name)).lanes),
+    .action(async (boardId: string, laneId: string, name: string) =>
+      printLanes((await api().renameLane(boardId, laneId, name)).lanes),
     );
   lane
     .command("move")
     .description("Move a lane to another place on the board")
-    .argument("<project>")
+    .argument("<board>")
     .argument("<lane>", "lane id")
     .argument("<position>", "1 is the leftmost lane", positiveInt)
-    .action(async (key: string, laneId: string, position: number) =>
-      printLanes((await api().moveLane(key, laneId, position)).lanes),
+    .action(async (boardId: string, laneId: string, position: number) =>
+      printLanes((await api().moveLane(boardId, laneId, position)).lanes),
     );
   lane
     .command("remove")
     .description("Remove a lane. Refused while it still has tickets: move them first.")
-    .argument("<project>")
+    .argument("<board>")
     .argument("<lane>", "lane id")
-    .action(async (key: string, laneId: string) => printLanes((await api().removeLane(key, laneId)).lanes));
+    .action(async (boardId: string, laneId: string) => printLanes((await api().removeLane(boardId, laneId)).lanes));
+
+  board.command("get").description("Get a board and its lanes").argument("<id>")
+    .action(async (id: string) => {
+      const found = await api().getBoard(id);
+      print(found, () => `${formatBoardLine(found)}\n${found.lanes.map(formatLaneLine).join("\n")}`);
+    });
+  board.command("list").description("List a project's boards and their ids").argument("<project>")
+    .action(async (projectKey: string) => {
+      const boards = await api().listBoards(projectKey);
+      print(boards, () => boards.map(formatBoardLine).join("\n"));
+    });
+  board.command("create").description("Create a board in a project").argument("<project>").argument("<name>")
+    .action(async (projectKey: string, name: string) => {
+      const created = await api().createBoard({ projectKey, name });
+      print(created, () => `Created ${formatBoardLine(created)}`);
+    });
+  board.command("rename").description("Rename a board; its id stays the same").argument("<id>").argument("<name>")
+    .action(async (id: string, name: string) => {
+      const renamed = await api().renameBoard(id, { name });
+      print(renamed, () => `Renamed ${formatBoardLine(renamed)}`);
+    });
+  board.command("delete").description("Delete an empty board; the last board cannot be deleted").argument("<id>")
+    .action(async (id: string) => {
+      await api().deleteBoard(id);
+      print({ deleted: id }, () => `Deleted ${id}`);
+    });
 
   const ticket = program.command("ticket").description("Manage tickets");
   ticket
     .command("list")
     .description("List tickets in a project, oldest first")
     .argument("<project>", "project key, e.g. SUMI")
-    .option("--status <lane>", "lane id, see `sumi project lane list <project>`")
+    .option("--status <lane>", "lane id, see `sumi board lane list <board>`")
     .option("--assignee <userId>")
-    .action(async (projectKey: string, o: { status?: string; assignee?: string }) => {
+    .option("--board <id>", "only tickets in this board; default: all boards")
+    .action(async (projectKey: string, o: { status?: string; assignee?: string; board?: string }) => {
       const tickets = await api().listTickets({
         projectKey,
-        ...defined({ status: o.status, assigneeId: o.assignee }),
+        ...defined({ status: o.status, assigneeId: o.assignee, boardId: o.board }),
       });
       print(tickets, () => (tickets.length > 0 ? tickets.map(formatTicketLine).join("\n") : "No tickets"));
     });
@@ -232,11 +259,12 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
     });
   ticket
     .command("create")
-    .description("Create a ticket (status defaults to the project's first lane)")
+    .description("Create a ticket (status defaults to the board's first lane)")
     .argument("<project>", "project key")
     .argument("<title>")
+    .option("--board <id>", "board id (required when the project has multiple boards)")
     .option("--description <text>", "markdown description")
-    .option("--status <lane>", "lane id, see `sumi project lane list <project>`")
+    .option("--status <lane>", "lane id, see `sumi board lane list <board>`")
     .addOption(priorityOption())
     .option("--assignee <userId>")
     .option("--repo <owner/name>", "GitHub repository")
@@ -248,6 +276,7 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
         title: string,
         o: {
           description?: string;
+          board?: string;
           status?: CreateTicketInput["status"];
           priority?: CreateTicketInput["priority"];
           assignee?: string;
@@ -261,6 +290,7 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
           projectKey,
           title,
           ...defined({
+            boardId: o.board,
             description: o.description,
             status: o.status,
             priority: o.priority,
@@ -315,7 +345,7 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
     );
   ticket
     .command("move")
-    .description("Move a ticket to another status (a lane id, see `sumi project lane list <project>`)")
+    .description("Move a ticket to another status (a lane id, see `sumi board lane list <board>`)")
     .argument("<key>")
     .argument("<status>")
     .action(async (key: string, status: string) => {
@@ -323,13 +353,23 @@ export async function run(argv: string[], opts: RunOptions): Promise<number> {
       print(moved, () => `Moved ${formatTicketLine(moved)}`);
     });
   ticket
+    .command("transfer")
+    .description("Transfer within a project; keep status if present on the destination, otherwise use its first lane")
+    .argument("<key>")
+    .argument("<board>", "destination board id")
+    .action(async (key: string, boardId: string) => {
+      const transferred = await api().transferTicket(key, { boardId });
+      print(transferred, () => `Transferred ${key} to ${transferred.boardId}`);
+    });
+  ticket
     .command("claim")
     .description(
       "Atomically take the oldest unassigned todo ticket (or one already yours), assign it to you and start it. Prints null/\"No ticket available\" when none.",
     )
     .argument("<project>", "project key")
-    .action(async (projectKey: string) => {
-      const claimed = await api().claimNext(projectKey);
+    .option("--board <id>", "claim from this board; default: all boards")
+    .action(async (projectKey: string, o: { board?: string }) => {
+      const claimed = await api().claimNext(projectKey, o.board);
       print({ ticket: claimed }, () => (claimed ? `Claimed ${formatTicketLine(claimed)}` : "No ticket available"));
     });
 

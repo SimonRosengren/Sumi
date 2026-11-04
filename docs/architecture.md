@@ -20,7 +20,11 @@ Internal packages export TypeScript source and have no build step ([ADR 0011](ad
 
 ## core layout
 
-`createCore({ uri, dbName })` returns `{ users, projects, tickets, comments, tokens, activity }` services. One file per service in `packages/core/src`. Services take the acting user id as the first argument of every mutation, validate input with the contract schemas, and throw `NotFoundError`, `ConflictError` or `ValidationError` (all extend `SumiError`), which `api` maps to HTTP statuses. Mutations run in a transaction together with their activity entry ([ADR 0012](adr/0012-mongo-transactions-for-mutations.md)). `createCore` first runs pending database migrations (`src/migrations.ts`, [ADR 0032](adr/0032-versioned-migrations-on-start.md)), which also create the indexes.
+`createCore({ uri, dbName })` returns `{ users, projects, boards, tickets, comments, tokens, activity, github }` services. One file per service in `packages/core/src`. Services take the acting user id as the first argument of every mutation, validate input with the contract schemas, and throw `NotFoundError`, `ConflictError` or `ValidationError` (all extend `SumiError`), which `api` maps to HTTP statuses. Mutations run in a transaction together with their activity entry ([ADR 0012](adr/0012-mongo-transactions-for-mutations.md)). `createCore` first runs pending database migrations (`src/migrations.ts`, [ADR 0032](adr/0032-versioned-migrations-on-start.md)), which also create the indexes.
+
+Boards own ordered lanes; projects own ticket numbering ([ADR 0040](adr/0040-board-owned-lanes.md)). Tickets reference one board in their project. `GET/POST /boards`, `GET/PATCH/DELETE /boards/:id`, `PUT /boards/:id/lanes` and `POST /tickets/:key/transfer` expose board operations. Ticket listing and claiming optionally filter by board. Migration `0003-board-lanes` copies legacy project lanes to every board before removing project lanes.
+
+The web header shows every accessible project–board pair as an independent checkbox tab (`PROJECT Board`). Selected boards are grouped by project; equal column names merge only within a project. This browser-local view uses existing board-scoped listing and mutation operations ([ADR 0041](adr/0041-multi-board-view.md)). Projects and boards are created through CLI or MCP.
 
 ## api layout
 

@@ -2,6 +2,7 @@ import {
   ActivityEntrySchema,
   AgentCreatedSchema,
   AuthConfigSchema,
+  BoardSchema,
   CommentSchema,
   ErrorResponseSchema,
   ProjectSchema,
@@ -12,6 +13,8 @@ import {
   type ActivityEntry,
   type AgentCreated,
   type AuthConfig,
+  type Board,
+  type CreateBoardInput,
   type Comment,
   type CreateCommentInput,
   type CreateProjectInput,
@@ -21,9 +24,11 @@ import {
   type MoveTicketInput,
   type Lane,
   type Project,
+  type RenameBoardInput,
   type SetLanesInput,
   type Ticket,
   type TokenInfo,
+  type TransferTicketInput,
   type UpdateTicketInput,
   type User,
 } from "@sumi/contract";
@@ -187,21 +192,21 @@ export function createClient({ url, token, fetch: fetchImpl = fetch }: ClientOpt
   const Claimed = z.object({ ticket: TicketSchema.nullable() });
 
   const listProjects = (): Promise<Project[]> => request("GET", "/projects", Projects);
-  const setLanes = (projectKey: string, input: SetLanesInput): Promise<Project> =>
-    request("PUT", `/projects/${projectKey}/lanes`, ProjectSchema, { body: input });
+  const getBoard = (boardId: string): Promise<Board> => request("GET", `/boards/${boardId}`, BoardSchema);
+  const setLanes = (boardId: string, input: SetLanesInput): Promise<Board> =>
+    request("PUT", `/boards/${boardId}/lanes`, BoardSchema, { body: input });
 
-  /** Reads the project's lanes, applies `edit` and saves the result. Like the web board, the last save wins. */
+  /** Reads the board's lanes, applies `edit` and saves the result. Like the web board, the last save wins. */
   async function editLanes(
-    projectKey: string,
+    boardId: string,
     edit: (lanes: Lane[]) => SetLanesInput["lanes"],
-  ): Promise<Project> {
-    const project = (await listProjects()).find((p) => p.key === projectKey);
-    if (!project) throw new ApiError("not_found", `Project ${projectKey} not found`);
-    return setLanes(projectKey, { lanes: edit(project.lanes) });
+  ): Promise<Board> {
+    const board = await getBoard(boardId);
+    return setLanes(boardId, { lanes: edit(board.lanes) });
   }
 
-  const laneNotFound = (projectKey: string, lanes: Lane[], id: string) =>
-    new ApiError("not_found", `Project ${projectKey} has no lane ${id} (lanes: ${lanes.map((l) => l.id).join(", ")})`);
+  const laneNotFound = (boardId: string, lanes: Lane[], id: string) =>
+    new ApiError("not_found", `Board ${boardId} has no lane ${id} (lanes: ${lanes.map((l) => l.id).join(", ")})`);
 
   return {
     me: (): Promise<User> => request("GET", "/me", UserSchema),
@@ -209,34 +214,43 @@ export function createClient({ url, token, fetch: fetchImpl = fetch }: ClientOpt
     createAgent: (name: string): Promise<AgentCreated> =>
       request("POST", "/agents", AgentCreatedSchema, { body: { name } }),
     listProjects,
+    getBoard,
     createProject: (input: CreateProjectInput): Promise<Project> =>
       request("POST", "/projects", ProjectSchema, { body: input }),
     /** Deletes a project with its tickets and activity (humans only). Cannot be undone. */
     deleteProject: (projectKey: string): Promise<void> => request("DELETE", `/projects/${projectKey}`, z.undefined()),
-    /** Replaces the project's lanes (ids keep existing lanes, no id adds one, left out ones are deleted). */
+    listBoards: (projectKey: string): Promise<Board[]> =>
+      request("GET", "/boards", z.array(BoardSchema), { query: { projectKey } }),
+    createBoard: (input: CreateBoardInput): Promise<Board> =>
+      request("POST", "/boards", BoardSchema, { body: input }),
+    renameBoard: (id: string, input: RenameBoardInput): Promise<Board> =>
+      request("PATCH", `/boards/${id}`, BoardSchema, { body: input }),
+    /** Refused while the board holds tickets or is the project's last board. */
+    deleteBoard: (id: string): Promise<void> => request("DELETE", `/boards/${id}`, z.undefined()),
+    /** Replaces the board's lanes (ids keep existing lanes, no id adds one, left out ones are deleted). */
     setLanes,
-    /** Adds a lane at the 1-based `position` (default: last). Resolves to the project with its new lanes. */
-    addLane: (projectKey: string, name: string, position?: number): Promise<Project> =>
-      editLanes(projectKey, (lanes) => {
+    /** Adds a lane at the 1-based `position` (default: last). Resolves to the board with its new lanes. */
+    addLane: (boardId: string, name: string, position?: number): Promise<Board> =>
+      editLanes(boardId, (lanes) => {
         const next: SetLanesInput["lanes"] = lanes.map(({ id, name }) => ({ id, name }));
         next.splice(position === undefined ? next.length : Math.max(position - 1, 0), 0, { name });
         return next;
       }),
-    renameLane: (projectKey: string, laneId: string, name: string): Promise<Project> =>
-      editLanes(projectKey, (lanes) => {
-        if (!lanes.some((l) => l.id === laneId)) throw laneNotFound(projectKey, lanes, laneId);
+    renameLane: (boardId: string, laneId: string, name: string): Promise<Board> =>
+      editLanes(boardId, (lanes) => {
+        if (!lanes.some((l) => l.id === laneId)) throw laneNotFound(boardId, lanes, laneId);
         return lanes.map((l) => (l.id === laneId ? { id: l.id, name } : { id: l.id, name: l.name }));
       }),
     /** Moves a lane to the 1-based `position`. */
-    moveLane: (projectKey: string, laneId: string, position: number): Promise<Project> =>
-      editLanes(projectKey, (lanes) => {
-        if (!lanes.some((l) => l.id === laneId)) throw laneNotFound(projectKey, lanes, laneId);
+    moveLane: (boardId: string, laneId: string, position: number): Promise<Board> =>
+      editLanes(boardId, (lanes) => {
+        if (!lanes.some((l) => l.id === laneId)) throw laneNotFound(boardId, lanes, laneId);
         return placeLane(lanes, laneId, position).map(({ id, name }) => ({ id, name }));
       }),
     /** Removes a lane. The API refuses while it still holds tickets. */
-    removeLane: (projectKey: string, laneId: string): Promise<Project> =>
-      editLanes(projectKey, (lanes) => {
-        if (!lanes.some((l) => l.id === laneId)) throw laneNotFound(projectKey, lanes, laneId);
+    removeLane: (boardId: string, laneId: string): Promise<Board> =>
+      editLanes(boardId, (lanes) => {
+        if (!lanes.some((l) => l.id === laneId)) throw laneNotFound(boardId, lanes, laneId);
         return lanes.filter((l) => l.id !== laneId).map(({ id, name }) => ({ id, name }));
       }),
     listTickets: (input: ListTicketsInput): Promise<Ticket[]> =>
@@ -248,8 +262,10 @@ export function createClient({ url, token, fetch: fetchImpl = fetch }: ClientOpt
       request("PATCH", `/tickets/${key}`, TicketSchema, { body: input }),
     moveTicket: (key: string, input: MoveTicketInput): Promise<Ticket> =>
       request("POST", `/tickets/${key}/move`, TicketSchema, { body: input }),
-    claimNext: async (projectKey: string): Promise<Ticket | null> =>
-      (await request("POST", "/tickets/claim-next", Claimed, { body: { projectKey } })).ticket,
+    transferTicket: (key: string, input: TransferTicketInput): Promise<Ticket> =>
+      request("POST", `/tickets/${key}/transfer`, TicketSchema, { body: input }),
+    claimNext: async (projectKey: string, boardId?: string): Promise<Ticket | null> =>
+      (await request("POST", "/tickets/claim-next", Claimed, { body: { projectKey, ...(boardId !== undefined && { boardId }) } })).ticket,
     listComments: (key: string): Promise<Comment[]> => request("GET", `/tickets/${key}/comments`, z.array(CommentSchema)),
     addComment: (key: string, input: CreateCommentInput): Promise<Comment> =>
       request("POST", `/tickets/${key}/comments`, CommentSchema, { body: input }),

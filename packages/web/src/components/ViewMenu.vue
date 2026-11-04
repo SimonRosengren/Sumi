@@ -11,6 +11,7 @@ defineProps<{
   hideEmpty: boolean;
   /** A setting is hiding something. */
   active: boolean;
+  label?: string;
 }>();
 defineEmits<{
   hideEmpty: [value: boolean];
@@ -28,21 +29,23 @@ const box =
 <template>
   <PopoverRoot>
     <PopoverTrigger as-child>
+      <slot>
       <Button
         variant="ghost"
         size="icon"
-        aria-label="View options"
+        :aria-label="label ?? 'View options'"
         :class="active ? 'bg-primary/12 text-foreground hover:bg-primary/16' : ''"
         :title="active ? 'View options (some lanes are hidden)' : 'View options'"
       >
         <SlidersHorizontal aria-hidden="true" />
       </Button>
+      </slot>
     </PopoverTrigger>
     <PopoverPortal>
       <PopoverContent
         align="end"
         :side-offset="6"
-        aria-label="View options"
+        :aria-label="label ?? 'View options'"
         class="bg-popover text-popover-foreground border-border animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 z-50 w-64 rounded-lg border p-1 outline-none"
       >
         <CheckboxRoot :model-value="hideEmpty" :class="row" @update:model-value="$emit('hideEmpty', $event === true)">
@@ -53,7 +56,7 @@ const box =
         <div class="bg-border -mx-1 my-1 h-px" role="separator" />
 
         <p class="type-label text-muted-foreground px-2 pt-1 pb-2">Show lanes</p>
-        <p v-if="lanes.length === 0" class="type-field text-muted-foreground px-2 pb-2">This project has no lanes.</p>
+        <p v-if="lanes.length === 0" class="type-field text-muted-foreground px-2 pb-2">This board has no lanes.</p>
         <CheckboxRoot
           v-for="lane in lanes"
           :key="lane.id"

@@ -1,21 +1,28 @@
 import type { Client } from "@sumi/client";
-import type { ActivityEntry, Comment, CreateTicketInput, Lane, Project, SetLanesInput, Status, Ticket, UpdateTicketInput, User } from "@sumi/contract";
+import type { ActivityEntry, Board, Comment, CreateTicketInput, Lane, Project, SetLanesInput, Status, Ticket, UpdateTicketInput, User } from "@sumi/contract";
 import { computed, ref, watch as watchRef } from "vue";
 import { groupByStatus, indexUsers } from "@/lib/board";
 
 const PROJECT_KEY = "sumi.project";
+const BOARDS_KEY = "sumi.boards";
 const DEBOUNCE_MS = 100;
 
 export function useBoard(client: Client) {
   const projects = ref<Project[]>([]);
+  const allBoards = ref<Board[]>([]);
   const users = ref<User[]>([]);
   const tickets = ref<Ticket[]>([]);
-  const selected = ref<string | null>(null);
+  const selectedIds = ref<string[]>([]);
+  const selectedBoard = ref<string | null>(null);
+  const activeBoards = computed(() => allBoards.value.filter((b) => selectedIds.value.includes(b.id)));
+  const selected = computed(() => currentBoard.value?.projectKey ?? null);
+  const boards = computed(() => allBoards.value.filter((b) => b.projectKey === selected.value));
+  const currentBoard = computed(() => allBoards.value.find((b) => b.id === selectedBoard.value) ?? null);
   const loading = ref(true);
   const error = ref<string | null>(null);
 
-  const lanes = computed(() => projects.value.find((p) => p.key === selected.value)?.lanes ?? []);
-  const columns = computed(() => groupByStatus(tickets.value, lanes.value));
+  const lanes = computed(() => currentBoard.value?.lanes ?? []);
+  const columns = computed(() => groupByStatus(tickets.value.filter((t) => t.boardId === selectedBoard.value), lanes.value));
   const usersById = computed(() => indexUsers(users.value));
 
   async function guard(work: () => Promise<void>) {
@@ -27,17 +34,48 @@ export function useBoard(client: Client) {
     }
   }
 
+  let ticketRequest = 0;
   async function loadTickets() {
-    const key = selected.value;
-    const list = key ? await client.listTickets({ projectKey: key }) : [];
-    // The user may have switched project while this was in flight; do not show the old one's tickets.
-    if (selected.value === key) tickets.value = list;
+    const request = ++ticketRequest;
+    const selection = JSON.stringify(selectedIds.value);
+    const lists = await Promise.all(activeBoards.value.map((b) => client.listTickets({ projectKey: b.projectKey, boardId: b.id })));
+    if (request === ticketRequest && selection === JSON.stringify(selectedIds.value)) tickets.value = lists.flat();
+  }
+
+  let initialized = false;
+  function remember() {
+    localStorage.setItem(BOARDS_KEY, JSON.stringify(selectedIds.value));
+    if (selected.value && selectedBoard.value) {
+      localStorage.setItem(PROJECT_KEY, selected.value);
+      localStorage.setItem(`sumi.board.${selected.value}`, selectedBoard.value);
+    }
   }
 
   async function loadAll() {
-    [projects.value, users.value] = await Promise.all([client.listProjects(), client.listUsers()]);
-    const wanted = selected.value ?? localStorage.getItem(PROJECT_KEY);
-    selected.value = projects.value.find((p) => p.key === wanted)?.key ?? projects.value[0]?.key ?? null;
+    const [projectList, userList] = await Promise.all([client.listProjects(), client.listUsers()]);
+    const boardLists = await Promise.all(projectList.map((p) => client.listBoards(p.key)));
+    projects.value = projectList;
+    users.value = userList;
+    allBoards.value = boardLists.flat();
+    let wanted = selectedIds.value;
+    if (!initialized) {
+      try {
+        const stored: unknown = JSON.parse(localStorage.getItem(BOARDS_KEY) ?? "null");
+        if (Array.isArray(stored) && stored.every((id) => typeof id === "string")) wanted = stored;
+        else throw new Error("Legacy selection");
+      } catch {
+        const key = localStorage.getItem(PROJECT_KEY);
+        const preferred = localStorage.getItem(`sumi.board.${key}`);
+        const first = allBoards.value.find((b) => b.projectKey === key && b.id === preferred)
+          ?? allBoards.value.find((b) => b.projectKey === key) ?? allBoards.value[0];
+        wanted = first ? [first.id] : [];
+      }
+      initialized = true;
+    }
+    selectedIds.value = allBoards.value.filter((b) => wanted.includes(b.id)).map((b) => b.id);
+    if (wanted.length && !selectedIds.value.length && allBoards.value[0]) selectedIds.value = [allBoards.value[0].id];
+    if (!selectedIds.value.includes(selectedBoard.value ?? "")) selectedBoard.value = selectedIds.value[0] ?? null;
+    remember();
     await loadTickets();
   }
 
@@ -107,23 +145,23 @@ export function useBoard(client: Client) {
   }
 
   /**
-   * Saves the lanes of the selected project. Renaming and reordering show at once; adding waits for the server,
+   * Saves the lanes of the selected board. Renaming and reordering show at once; adding waits for the server,
    * which makes the id. Resolves to the saved lanes, or null when the server refused (the error is shown on the board).
    */
   async function setLanes(next: SetLanesInput["lanes"]): Promise<Lane[] | null> {
-    const key = selected.value;
-    if (!key) return null;
-    const before = projects.value;
-    const patch = (lanes: Lane[]) => (projects.value = before.map((p) => (p.key === key ? { ...p, lanes } : p)));
+    const id = selectedBoard.value;
+    if (!id) return null;
+    const before = allBoards.value;
+    const patch = (lanes: Lane[]) => (allBoards.value = allBoards.value.map((b) => (b.id === id ? { ...b, lanes } : b)));
     if (next.every((l) => l.id !== undefined)) patch(next as Lane[]);
     const saved = { lanes: null as Lane[] | null };
     await guard(async () => {
       try {
-        const project = await client.setLanes(key, { lanes: next });
-        projects.value = projects.value.map((p) => (p.key === key ? project : p));
-        saved.lanes = project.lanes;
+        const board = await client.setLanes(id, { lanes: next });
+        allBoards.value = allBoards.value.map((b) => (b.id === id ? board : b));
+        saved.lanes = board.lanes;
       } catch (err) {
-        projects.value = before; // back to what the server has
+        allBoards.value = allBoards.value.map((b) => b.id === id ? before.find((old) => old.id === id) ?? b : b);
         throw err;
       }
     });
@@ -142,17 +180,22 @@ export function useBoard(client: Client) {
 
   /** Creates a ticket in the selected project. Throws on failure so the form can show the message. */
   async function create(input: Omit<CreateTicketInput, "projectKey">) {
-    if (!selected.value) throw new Error("No project selected");
-    const created = await client.createTicket({ ...input, projectKey: selected.value });
+    const target = allBoards.value.find((b) => b.id === (input.boardId ?? selectedBoard.value));
+    if (!target) throw new Error("No board selected");
+    const created = await client.createTicket({ ...input, projectKey: target.projectKey, boardId: target.id });
     // The live update may have added it already.
-    if (selected.value === created.projectKey && !tickets.value.some((t) => t.key === created.key)) {
+    if (selectedIds.value.includes(created.boardId) && !tickets.value.some((t) => t.key === created.key)) {
       tickets.value = [...tickets.value, created];
     }
     return created;
   }
 
   function replace(ticket: Ticket) {
-    tickets.value = tickets.value.map((t) => (t.key === ticket.key ? ticket : t));
+    tickets.value = tickets.value.map((t) => (t.key === ticket.key ? ticket : t)).filter((t) => selectedIds.value.includes(t.boardId));
+  }
+
+  async function transfer(key: string, boardId: string) {
+    await guard(async () => replace(await client.transferTicket(key, { boardId })));
   }
 
   // The ticket whose detail panel is open, and its history.
@@ -190,18 +233,27 @@ export function useBoard(client: Client) {
     }
   }
 
-  async function select(key: string) {
-    openKey.value = null;
-    selected.value = key;
-    localStorage.setItem(PROJECT_KEY, key);
+  function targetBoard(id: string) {
+    if (selectedIds.value.includes(id)) selectedBoard.value = id;
+  }
+
+  async function toggleBoard(id: string) {
+    const target = allBoards.value.find((b) => b.id === id);
+    if (!target) return;
+    const ids = selectedIds.value.includes(id) ? selectedIds.value.filter((x) => x !== id) : [...selectedIds.value, id];
+    selectedIds.value = allBoards.value.filter((b) => ids.includes(b.id)).map((b) => b.id);
+    if (!selectedIds.value.includes(selectedBoard.value ?? "")) selectedBoard.value = selectedIds.value[0] ?? null;
+    tickets.value = tickets.value.filter((t) => selectedIds.value.includes(t.boardId));
+    if (!tickets.value.some((t) => t.key === openKey.value)) openKey.value = null;
+    remember();
     loading.value = true;
     await guard(loadTickets);
     loading.value = false;
   }
 
   return {
-    projects, users, usersById, tickets, lanes, columns, selected, loading, error,
+    projects, allBoards, activeBoards, selectedIds, boards, selectedBoard, currentBoard, users, usersById, tickets, lanes, columns, selected, loading, error,
     openKey, openTicket, activity, comments,
-    load, select, move, update, create, comment, setLanes, watch,
+    load, toggleBoard, targetBoard, transfer, move, update, create, comment, setLanes, watch,
   };
 }

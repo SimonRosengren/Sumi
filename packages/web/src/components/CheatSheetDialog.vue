@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 import { Button } from "@/components/ui/button";
 import { SECTION_LABEL } from "@/lib/fields";
 
-const props = defineProps<{ open: boolean; projectKey: string | null }>();
+const props = defineProps<{ open: boolean; projectKey: string | null; boardId?: string | null }>();
 const emit = defineEmits<{ close: [] }>();
 
 const CLI = "pnpm exec sumi";
@@ -14,17 +14,26 @@ const CLI = "pnpm exec sumi";
 const groups = computed(() => {
   const project = props.projectKey ?? "SUMI";
   const ticket = `${project}-1`;
+  const board = props.boardId ? ` --board ${props.boardId}` : "";
   return [
     {
       label: "Tickets",
       commands: [
-        { cmd: `${CLI} ticket list ${project}`, note: "List the tickets in a project" },
+        { cmd: `${CLI} ticket list ${project}${board}`, note: "List tickets in this board" },
         { cmd: `${CLI} ticket get ${ticket}`, note: "Show one ticket" },
-        { cmd: `${CLI} ticket create ${project} "Fix login" --priority high`, note: "Create a ticket" },
+        { cmd: `${CLI} ticket create ${project} "Fix login" --priority high${board}`, note: "Create a ticket" },
         { cmd: `${CLI} ticket move ${ticket} in_progress`, note: "Move it to a lane (use the lane id)" },
         { cmd: `${CLI} ticket update ${ticket} --assignee none`, note: "Change fields; none clears them" },
         { cmd: `${CLI} ticket comment ${ticket} "Done in #12"`, note: "Add a comment" },
-        { cmd: `${CLI} ticket claim ${project}`, note: "Take the next unassigned todo ticket" },
+        { cmd: `${CLI} ticket claim ${project}${board}`, note: "Take the next unassigned todo ticket" },
+      ],
+    },
+    {
+      label: "Boards",
+      commands: [
+        { cmd: `${CLI} board list ${project}`, note: "Show board ids" },
+        { cmd: `${CLI} board create ${project} "Bugs"`, note: "Create a board with its own columns" },
+        { cmd: `${CLI} ticket transfer ${ticket} ${props.boardId ?? '<board-id>'}`, note: "Transfer within the project; keep the ticket key" },
       ],
     },
     {
@@ -32,8 +41,8 @@ const groups = computed(() => {
       commands: [
         { cmd: `${CLI} project create WEB "Website"`, note: "Create a project: a 2-10 character key in capitals, then a name" },
         { cmd: `${CLI} project list`, note: "List projects" },
-        { cmd: `${CLI} project lane list ${project}`, note: "Show the lane ids" },
-        { cmd: `${CLI} project lane add ${project} "Blocked"`, note: "Add a lane (rename, move and remove work the same way)" },
+        { cmd: `${CLI} board lane list ${props.boardId ?? '<board-id>'}`, note: "Show this board's lane ids" },
+        { cmd: `${CLI} board lane add ${props.boardId ?? '<board-id>'} "Blocked"`, note: "Add a lane to this board (rename, move and remove work the same way)" },
         { cmd: `${CLI} project delete WEB`, note: "Delete a project and everything in it. Cannot be undone" },
       ],
     },
@@ -51,7 +60,7 @@ const groups = computed(() => {
 
 /** Both variables are read from the environment (or the checkout's `.env`). The API lives under `/api` on this site. */
 const setup = computed(
-  () => `export SUMI_URL=${window.location.origin}/api\nexport SUMI_TOKEN=<your token>\n${CLI} ticket list ${props.projectKey ?? "SUMI"}`,
+  () => `export SUMI_URL=${window.location.origin}/api\nexport SUMI_TOKEN=<your token>\n${CLI} ticket list ${props.projectKey ?? "SUMI"}${props.boardId ? ` --board ${props.boardId}` : ""}`,
 );
 
 const copied = ref<string | null>(null);

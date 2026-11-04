@@ -12,6 +12,7 @@ const props = defineProps<{
   lane: Lane;
   tickets: Ticket[];
   usersById: Map<string, User>;
+  boardNames?: Map<string, string>;
   /** Edit mode: the lane can be dragged by its name, renamed and removed. */
   editing: boolean;
   /** The lane's name is being edited. */
@@ -161,6 +162,7 @@ function commit() {
         v-for="t in tickets"
         :key="t.key"
         :ticket="t"
+        :board-name="boardNames?.get(t.boardId)"
         :assignee="t.assigneeId ? usersById.get(t.assigneeId) : undefined"
         @open="emit('open', t.key)"
       />

@@ -1,44 +1,49 @@
-import type { Lane, Ticket } from "@sumi/contract";
-import { computed, ref, type Ref } from "vue";
-import { loadView, saveView, visibleLanes } from "@/lib/view";
+import type { Board, Ticket } from "@sumi/contract";
+import { ref, watch, type Ref } from "vue";
+import { groupByStatus } from "@/lib/board";
+import { loadView, saveView, visibleLanes, type ViewSettings } from "@/lib/view";
 
 /** The board's display settings (hidden lanes, hide empty lanes), remembered in this browser. */
 export function useViewSettings(
-  project: Ref<string | null>,
-  lanes: Ref<Lane[]>,
-  columns: Ref<Record<string, Ticket[]>>,
+  boards: Ref<Board[]>,
+  tickets: Ref<Ticket[]>,
 ) {
-  const view = ref(loadView());
-  const persist = () => saveView(view.value);
+  const settings = ref<Record<string, ViewSettings>>({});
+  watch(boards, (items) => {
+    settings.value = Object.fromEntries(items.map((b) => [b.id, settings.value[b.id] ?? loadView(b.id)]));
+  }, { immediate: true, flush: "sync" });
 
-  /** Lanes the user hid in the current project; ids of lanes that no longer exist are ignored. */
-  const hiddenIds = computed(() => {
-    const hidden = (project.value && view.value.hidden[project.value]) || [];
-    return hidden.filter((id) => lanes.value.some((l) => l.id === id));
-  });
-  const hideEmpty = computed(() => view.value.hideEmpty);
-  const visible = computed(() => visibleLanes(lanes.value, columns.value, hiddenIds.value, hideEmpty.value));
+  const columns = (board: Board) => groupByStatus(tickets.value.filter((t) => t.boardId === board.id), board.lanes);
+
+  /** Lanes hidden in the current board; removed lane ids are ignored. */
+  const hiddenIds = (board: Board) => (settings.value[board.id]?.hidden[board.id] ?? []).filter((id) => board.lanes.some((l) => l.id === id));
+  const hideEmpty = (id: string) => settings.value[id]?.hideEmpty ?? false;
+  const visible = (board: Board) => visibleLanes(board.lanes, columns(board), hiddenIds(board), hideEmpty(board.id));
   /** Any setting is changing what the board shows. */
-  const active = computed(() => hideEmpty.value || hiddenIds.value.length > 0);
+  const active = (board: Board) => hideEmpty(board.id) || hiddenIds(board).length > 0;
 
-  function setHideEmpty(value: boolean) {
-    view.value.hideEmpty = value;
-    persist();
+  function persist(id: string, change: (view: ViewSettings) => void) {
+    const view = settings.value[id];
+    if (!view) return;
+    change(view);
+    saveView(view, id);
   }
 
-  function setLaneHidden(id: string, hide: boolean) {
-    if (!project.value) return;
-    const others = (view.value.hidden[project.value] ?? []).filter((x) => x !== id);
-    view.value.hidden[project.value] = hide ? [...others, id] : others;
-    persist();
+  function setHideEmpty(boardId: string, value: boolean) {
+    persist(boardId, (view) => { view.hideEmpty = value; });
   }
 
-  /** Shows everything again in the current project. */
-  function reset() {
-    view.value.hideEmpty = false;
-    if (project.value) delete view.value.hidden[project.value];
-    persist();
+  function setLaneHidden(boardId: string, id: string, hide: boolean) {
+    persist(boardId, (view) => {
+      const others = (view.hidden[boardId] ?? []).filter((x) => x !== id);
+      view.hidden[boardId] = hide ? [...others, id] : others;
+    });
   }
 
-  return { hideEmpty, hiddenIds, visible, active, setHideEmpty, setLaneHidden, reset };
+  /** Shows everything again in the current board. */
+  function reset(boardId: string) {
+    persist(boardId, (view) => { view.hideEmpty = false; delete view.hidden[boardId]; });
+  }
+
+  return { settings, columns, hideEmpty, hiddenIds, visible, active, setHideEmpty, setLaneHidden, reset };
 }

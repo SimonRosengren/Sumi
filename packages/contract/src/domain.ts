@@ -6,11 +6,11 @@ export const LaneIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_]{0,39}$/, "lower
 export const LANE_NAME_MAX_LENGTH = 40;
 export const MAX_LANES = 20;
 
-/** A board column. Its position in `Project.lanes` is its place on the board (ADR 0028). */
+/** A board column. Its position in `Board.lanes` is its place on the board. */
 export const LaneSchema = z.object({ id: LaneIdSchema, name: z.string() });
 export type Lane = z.infer<typeof LaneSchema>;
 
-/** The lanes of a new project. Claiming and the GitHub webhook refer to `todo`, `in_progress`, `in_review` and `done`. */
+/** The lanes of a new board. Claiming and the GitHub webhook refer to these ids. */
 export const DEFAULT_LANES: readonly Lane[] = [
   { id: "backlog", name: "Backlog" },
   { id: "todo", name: "Todo" },
@@ -19,7 +19,7 @@ export const DEFAULT_LANES: readonly Lane[] = [
   { id: "done", name: "Done" },
 ];
 
-/** A ticket's status is the id of one of its project's lanes. */
+/** A ticket's status is the id of one of its board's lanes. */
 export const StatusSchema = LaneIdSchema;
 export type Status = z.infer<typeof StatusSchema>;
 
@@ -59,15 +59,27 @@ export type User = z.infer<typeof UserSchema>;
 export const ProjectSchema = z.object({
   key: ProjectKeySchema,
   name: z.string(),
-  /** Board columns, left to right. Never empty. */
-  lanes: z.array(LaneSchema),
   createdAt: z.coerce.date(),
 });
 export type Project = z.infer<typeof ProjectSchema>;
 
+/** Opaque, stable board handle. Names can change without changing membership. */
+export const BoardIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/, "invalid board id");
+export const BoardNameSchema = z.string().trim().min(1).max(100);
+export const BoardSchema = z.object({
+  id: BoardIdSchema,
+  projectKey: ProjectKeySchema,
+  name: BoardNameSchema,
+  /** Board columns, left to right. Never empty. */
+  lanes: z.array(LaneSchema).min(1),
+  createdAt: z.coerce.date(),
+});
+export type Board = z.infer<typeof BoardSchema>;
+
 export const TicketSchema = z.object({
   key: TicketKeySchema,
   projectKey: ProjectKeySchema,
+  boardId: BoardIdSchema,
   number: z.number().int().positive(),
   title: z.string(),
   description: z.string(),
@@ -107,9 +119,14 @@ export const ACTIVITY_ACTIONS = [
   "project.created",
   "project.lanes_updated",
   "project.deleted",
+  "board.created",
+  "board.renamed",
+  "board.lanes_updated",
+  "board.deleted",
   "ticket.created",
   "ticket.updated",
   "ticket.moved",
+  "ticket.transferred",
   "ticket.claimed",
   "ticket.commented",
   "agent.created",

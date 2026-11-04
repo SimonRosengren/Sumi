@@ -1,5 +1,6 @@
 import { MongoClient } from "mongodb";
 import { createActivityService } from "./activity";
+import { createBoardService } from "./boards";
 import { createCommentService } from "./comments";
 import { collections, createTx } from "./db";
 import { createGithubService } from "./github";
@@ -31,6 +32,7 @@ export async function createCore({ uri, dbName }: CoreOptions) {
   return {
     users: createUserService(ctx),
     projects: createProjectService(ctx),
+    boards: createBoardService(ctx),
     tickets,
     comments: createCommentService(ctx),
     github: createGithubService(ctx, tickets),

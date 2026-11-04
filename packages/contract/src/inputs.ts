@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   COMMENT_MAX_LENGTH,
+  BoardIdSchema,
+  BoardNameSchema,
   LANE_NAME_MAX_LENGTH,
   LaneIdSchema,
   MAX_LANES,
@@ -25,6 +27,14 @@ export const CreateProjectInputSchema = z.object({
 });
 export type CreateProjectInput = z.infer<typeof CreateProjectInputSchema>;
 
+export const CreateBoardInputSchema = z.object({ projectKey: ProjectKeySchema, name: BoardNameSchema });
+export type CreateBoardInput = z.infer<typeof CreateBoardInputSchema>;
+export const RenameBoardInputSchema = z.object({ name: BoardNameSchema });
+export type RenameBoardInput = z.infer<typeof RenameBoardInputSchema>;
+/** Status is preserved if the destination has it; otherwise its first lane is used. */
+export const TransferTicketInputSchema = z.object({ boardId: BoardIdSchema });
+export type TransferTicketInput = z.infer<typeof TransferTicketInputSchema>;
+
 /**
  * The complete new list of lanes, in order. A lane with an `id` is an existing one (renamed and/or moved);
  * one without is new. Existing lanes left out are deleted, which is refused while they hold tickets.
@@ -39,9 +49,11 @@ export type SetLanesInput = z.infer<typeof SetLanesInputSchema>;
 
 export const CreateTicketInputSchema = z.object({
   projectKey: ProjectKeySchema,
+  /** May be omitted only when the project has exactly one board. */
+  boardId: BoardIdSchema.optional(),
   title: z.string().trim().min(1).max(200),
   description: z.string().max(20_000).default(""),
-  /** Defaults to the project's first lane. */
+  /** Defaults to the board's first lane. */
   status: StatusSchema.optional(),
   assigneeId: z.string().optional(),
   priority: PrioritySchema.optional(),
@@ -67,6 +79,7 @@ export type CreateCommentInput = z.infer<typeof CreateCommentInputSchema>;
 
 export const ListTicketsInputSchema = z.object({
   projectKey: ProjectKeySchema,
+  boardId: BoardIdSchema.optional(),
   status: StatusSchema.optional(),
   assigneeId: z.string().optional(),
 });
@@ -84,7 +97,7 @@ export type ListActivityInput = Omit<z.input<typeof ListActivityInputSchema>, "l
 export const CreateAgentInputSchema = z.object({ name: z.string().trim().min(1).max(100) });
 export type CreateAgentInput = z.infer<typeof CreateAgentInputSchema>;
 
-export const ClaimNextInputSchema = z.object({ projectKey: ProjectKeySchema });
+export const ClaimNextInputSchema = z.object({ projectKey: ProjectKeySchema, boardId: BoardIdSchema.optional() });
 export type ClaimNextInput = z.infer<typeof ClaimNextInputSchema>;
 
 /** Without `userId`, the caller's own tokens. */

@@ -12,8 +12,10 @@ function toggle() {
 </script>
 
 <template>
-  <Button variant="ghost" size="icon" :aria-label="dark ? 'Switch to light theme' : 'Switch to dark theme'" @click="toggle">
-    <Sun v-if="dark" aria-hidden="true" />
-    <Moon v-else aria-hidden="true" />
-  </Button>
+  <slot :dark="dark" :toggle="toggle">
+    <Button variant="ghost" size="icon" :aria-label="dark ? 'Switch to light theme' : 'Switch to dark theme'" @click="toggle">
+      <Sun v-if="dark" aria-hidden="true" />
+      <Moon v-else aria-hidden="true" />
+    </Button>
+  </slot>
 </template>

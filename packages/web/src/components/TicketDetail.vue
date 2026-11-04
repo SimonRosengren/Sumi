@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ActivityEntry, Comment, Lane, Status, Ticket, UpdateTicketInput, User } from "@sumi/contract";
+import type { ActivityEntry, Board, Comment, Lane, Status, Ticket, UpdateTicketInput, User } from "@sumi/contract";
 import { PrioritySchema } from "@sumi/contract";
 import { ChevronDown, GitBranch, GitPullRequest, Pencil, X } from "@lucide/vue";
 import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from "reka-ui";
@@ -12,8 +12,9 @@ import { CHEVRON, FIELD, SECTION_LABEL, TEXTAREA } from "@/lib/fields";
 
 const props = defineProps<{
   ticket: Ticket | null;
-  /** The lanes of the ticket's project, in board order. */
+  /** The lanes of the ticket's board, in order. */
   lanes: Lane[];
+  boards?: Board[];
   users: User[];
   usersById: Map<string, User>;
   activity: ActivityEntry[];
@@ -23,7 +24,7 @@ const props = defineProps<{
   /** Saves title and description. Resolves to false when the server refused. */
   save: (input: UpdateTicketInput) => Promise<boolean>;
 }>();
-const emit = defineEmits<{ close: []; move: [status: Status]; update: [input: UpdateTicketInput] }>();
+const emit = defineEmits<{ close: []; move: [status: Status]; update: [input: UpdateTicketInput]; transfer: [boardId: string] }>();
 
 const label = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
 
@@ -137,6 +138,15 @@ function setPriority(value: string) {
         </header>
 
         <dl class="grid grid-cols-[5.5rem_1fr] items-center gap-x-3 gap-y-2 type-field">
+          <template v-if="boards?.length">
+            <dt class="text-muted-foreground"><label for="detail-board">Board</label></dt>
+            <dd class="relative">
+              <select id="detail-board" :class="FIELD" :value="ticket.boardId" @change="emit('transfer', ($event.target as HTMLSelectElement).value)">
+                <option v-for="b in boards" :key="b.id" :value="b.id">{{ b.name }}</option>
+              </select>
+              <ChevronDown :class="CHEVRON" aria-hidden="true" />
+            </dd>
+          </template>
           <dt class="text-muted-foreground"><label for="detail-status">Status</label></dt>
           <dd class="relative">
             <StatusIcon :status="ticket.status" class="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2" />

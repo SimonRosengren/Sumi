@@ -1,4 +1,5 @@
 import type { Db } from "mongodb";
+import { DEFAULT_LANES, type Lane } from "@sumi/contract";
 
 /**
  * A schema or data change that must run once per database (ADR 0032).
@@ -31,6 +32,38 @@ export const MIGRATIONS: readonly Migration[] = [
         db.collection("activity").createIndex({ ticketKey: 1, createdAt: -1 }),
         db.collection("activity").createIndex({ projectKey: 1, createdAt: -1 }),
       ]);
+    },
+  },
+  {
+    id: "0002-project-boards",
+    async up(db) {
+      // Deterministic ids and conditional updates make concurrent starts and retries safe.
+      for await (const project of db.collection<{ _id: string; createdAt: Date }>("projects").find()) {
+        const boardId = `${project._id}-general`;
+        await db.collection<{ _id: string; projectKey: string; name: string; createdAt: Date }>("boards").updateOne(
+          { _id: boardId },
+          { $setOnInsert: { projectKey: project._id, name: "General", createdAt: project.createdAt } },
+          { upsert: true },
+        );
+        await db.collection("tickets").updateMany(
+          { projectKey: project._id, boardId: { $exists: false } },
+          { $set: { boardId } },
+        );
+      }
+      await db.collection("boards").createIndex({ projectKey: 1, createdAt: 1, _id: 1 });
+      await db.collection("tickets").createIndex({ projectKey: 1, boardId: 1, status: 1, number: 1 });
+    },
+  },
+  {
+    id: "0003-board-lanes",
+    async up(db) {
+      for await (const project of db.collection<{ _id: string; lanes?: Lane[] }>("projects").find()) {
+        await db.collection("boards").updateMany(
+          { projectKey: project._id, lanes: { $exists: false } },
+          { $set: { lanes: project.lanes ?? DEFAULT_LANES } },
+        );
+      }
+      await db.collection("projects").updateMany({}, { $unset: { lanes: "" } });
     },
   },
 ];

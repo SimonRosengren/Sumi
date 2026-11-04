@@ -36,24 +36,24 @@ describe("BoardView", () => {
 
   it("loads the first project, then switches and remembers the choice", async () => {
     const { wrapper, client } = await render();
-    expect(client.listTickets).toHaveBeenCalledWith({ projectKey: "SUMI" });
+    expect(client.listTickets).toHaveBeenCalledWith({ projectKey: "SUMI", boardId: "SUMI-general" });
 
-    const web = wrapper.findAll("nav button").find((b) => b.text().includes("WEB"));
-    await web?.trigger("click");
+    await wrapper.findAll('nav[aria-label="Boards"] button').find((b) => b.text() === "SUMI General")!.trigger("click");
+    await wrapper.findAll('nav[aria-label="Boards"] button').find((b) => b.text() === "WEB General")!.trigger("click");
     await flushPromises();
-    expect(client.listTickets).toHaveBeenLastCalledWith({ projectKey: "WEB" });
+    expect(client.listTickets).toHaveBeenLastCalledWith({ projectKey: "WEB", boardId: "WEB-general" });
     expect(column(wrapper, "todo").text()).toContain("Landing page");
     expect(wrapper.text()).not.toContain("Backlog one");
     expect(localStorage.getItem("sumi.project")).toBe("WEB");
 
     const reopened = await render();
-    expect(reopened.client.listTickets).toHaveBeenCalledWith({ projectKey: "WEB" });
+    expect(reopened.client.listTickets).toHaveBeenCalledWith({ projectKey: "WEB", boardId: "WEB-general" });
   });
 
   it("falls back to the first project when the remembered one is gone", async () => {
     localStorage.setItem("sumi.project", "GONE");
     const { client } = await render();
-    expect(client.listTickets).toHaveBeenCalledWith({ projectKey: "SUMI" });
+    expect(client.listTickets).toHaveBeenCalledWith({ projectKey: "SUMI", boardId: "SUMI-general" });
   });
 
   it("shows an empty state when there are no projects", async () => {
@@ -125,7 +125,7 @@ describe("BoardView", () => {
       await flushPromises();
       expect(client.setLanes).toHaveBeenCalledTimes(1);
       const [key, body] = vi.mocked(client.setLanes).mock.calls[0] as unknown as [string, { lanes: { id: string; name: string }[] }];
-      expect(key).toBe("SUMI");
+      expect(key).toBe("SUMI-general");
       expect(body.lanes.map((l) => `${l.id}:${l.name}`)).toEqual([
         "backlog:Backlog", "todo:Ready", "in_progress:In progress", "in_review:In review", "done:Done",
       ]);
@@ -207,10 +207,10 @@ describe("BoardView", () => {
       expect(wrapper.find('[data-status="todo"]').exists()).toBe(true);
     });
 
-    it("lays the board out from the project's own lanes", async () => {
+    it("lays the board out from its own lanes", async () => {
       const lanes = [{ id: "inbox", name: "Inbox" }, { id: "done", name: "Shipped" }];
-      const listProjects = vi.fn(async () => [{ key: "SUMI", name: "Sumi", lanes, createdAt: new Date() }]);
-      const { wrapper } = await render(fakeClient({ listProjects }));
+      const listBoards = vi.fn(async (key: string) => [{ id: `${key}-general`, projectKey: key, name: "General", lanes, createdAt: new Date() }]);
+      const { wrapper } = await render(fakeClient({ listBoards }));
       expect(names(wrapper)).toEqual(["inbox", "done"]);
       expect(column(wrapper, "done").text()).toContain("Shipped");
       expect(column(wrapper, "done").text()).toContain("Finished");
@@ -311,8 +311,8 @@ describe("BoardView", () => {
 
       opts(client).onReady(); // slow reload of SUMI starts
       await flushPromises();
-      const web = wrapper.findAll("nav button").find((b) => b.text().includes("WEB"));
-      await web?.trigger("click");
+      await wrapper.findAll('nav[aria-label="Boards"] button').find((b) => b.text() === "SUMI General")!.trigger("click");
+      await wrapper.findAll('nav[aria-label="Boards"] button').find((b) => b.text() === "WEB General")!.trigger("click");
       await flushPromises();
       finishSumi();
       await flushPromises();

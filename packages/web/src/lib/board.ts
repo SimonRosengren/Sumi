@@ -1,5 +1,5 @@
 import { placeLane } from "@sumi/client";
-import { StatusSchema, type ActivityEntry, type Lane, type Ticket, type User } from "@sumi/contract";
+import { StatusSchema, type ActivityEntry, type Board, type Lane, type Ticket, type User } from "@sumi/contract";
 
 /** Marks a drag as a lane being reordered, as opposed to a ticket (which travels as `text/plain`). */
 export const LANE_DRAG_TYPE = "application/x-sumi-lane";
@@ -9,6 +9,36 @@ export function groupByStatus(tickets: Ticket[], lanes: Lane[]): Record<string, 
   const groups: Record<string, Ticket[]> = Object.fromEntries(lanes.map((l) => [l.id, []]));
   for (const t of tickets) groups[t.status]?.push(t);
   return groups;
+}
+
+export interface MergedColumn {
+  key: string;
+  lane: Lane;
+  sources: { boardId: string; laneId: string }[];
+  tickets: Ticket[];
+}
+
+/** Boards must be in tab order and belong to one project. Match names, never lane ids. */
+export function mergeColumns(boards: Board[], tickets: Ticket[]): MergedColumn[] {
+  const columns: MergedColumn[] = [];
+  for (const board of boards) {
+    for (let i = 0; i < board.lanes.length; i++) {
+      const lane = board.lanes[i]!;
+      let column = columns.find((c) => c.lane.name === lane.name);
+      if (!column) {
+        column = { key: JSON.stringify([board.projectKey, lane.name]), lane, sources: [], tickets: [] };
+        // Put a new column before the next known column, or at the end. Earlier boards win conflicts.
+        const next = board.lanes.slice(i + 1).map((l) => columns.find((c) => c.lane.name === l.name)).find(Boolean);
+        columns.splice(next ? columns.indexOf(next) : columns.length, 0, column);
+      }
+      column.sources.push({ boardId: board.id, laneId: lane.id });
+    }
+  }
+  for (const column of columns) {
+    column.tickets = tickets.filter((t) => column.sources.some((s) => s.boardId === t.boardId && s.laneId === t.status))
+      .sort((a, b) => a.number - b.number);
+  }
+  return columns;
 }
 
 /** The lanes with `id` moved to where `target` is: dragging a lane onto another puts it in that place. */
@@ -43,6 +73,8 @@ export function describeActivity(entry: ActivityEntry, lanes: Lane[] = []): stri
     }
     case "ticket.commented":
       return "commented";
+    case "ticket.transferred":
+      return "transferred this ticket to another board";
     case "ticket.claimed":
       return "claimed this ticket";
     case "ticket.updated": {

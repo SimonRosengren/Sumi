@@ -49,7 +49,6 @@ describe("tools", () => {
     expect((await call(mcp, "list_projects")).data).toContainEqual({
       key: "MCPA",
       name: "MCP A",
-      lanes: DEFAULT_LANES,
     });
   });
 
@@ -65,6 +64,7 @@ describe("tools", () => {
     });
     expect(created.data).toEqual({
       key: "MCPB-1",
+      boardId: "MCPB-general",
       title: "First",
       status: "backlog",
       priority: "high",
@@ -76,7 +76,7 @@ describe("tools", () => {
 
     const listed = await call(mcp, "list_tickets", { projectKey: "MCPB" });
     expect(listed.data).toEqual([
-      { key: "MCPB-1", title: "First", status: "backlog", priority: "high", links: { repo: "acme/sumi" } },
+      { key: "MCPB-1", boardId: "MCPB-general", title: "First", status: "backlog", priority: "high", links: { repo: "acme/sumi" } },
     ]);
     expect((await call(mcp, "list_tickets", { projectKey: "MCPB", status: "done" })).data).toEqual([]);
 
@@ -140,37 +140,69 @@ describe("comments", () => {
   });
 });
 
+describe("boards", () => {
+  it("exposes board management, membership and board-scoped claiming to agents", async () => {
+    const api = createClient({ url, token });
+    const agent = await api.createAgent("Board worker");
+    const worker = await connect(agent.token);
+    try {
+      expect(await call(worker, "create_project", { key: "MCPBOARDS", name: "Boards" })).toMatchObject({
+        isError: false, data: { key: "MCPBOARDS", name: "Boards" },
+      });
+      expect((await api.listActivity({ projectKey: "MCPBOARDS" })).find((e) => e.action === "project.created")?.actorId).toBe(agent.user.id);
+      const general = (await call(worker, "list_boards", { projectKey: "MCPBOARDS" })).data[0];
+      expect((await call(worker, "get_board", { boardId: general.id })).data).toMatchObject({ lanes: DEFAULT_LANES });
+      const bugs = (await call(worker, "create_board", { projectKey: "MCPBOARDS", name: "Bugs" })).data;
+      expect((await call(worker, "rename_board", { boardId: bugs.id, name: "Defects" })).data).toMatchObject({ id: bugs.id, name: "Defects" });
+      expect((await call(worker, "create_ticket", { projectKey: "MCPBOARDS", title: "Ambiguous" })).isError).toBe(true);
+      const ticket = (await call(worker, "create_ticket", { projectKey: "MCPBOARDS", boardId: bugs.id, title: "Bug", status: "todo" })).data;
+      expect(ticket).toMatchObject({ boardId: bugs.id, key: "MCPBOARDS-1" });
+      expect((await call(worker, "delete_board", { boardId: bugs.id })).isError).toBe(true);
+      expect((await call(worker, "list_tickets", { projectKey: "MCPBOARDS", boardId: general.id })).data).toEqual([]);
+      expect((await call(worker, "claim_next_ticket", { projectKey: "MCPBOARDS", boardId: general.id })).data).toEqual({ ticket: null });
+      expect((await call(worker, "claim_next_ticket", { projectKey: "MCPBOARDS", boardId: bugs.id })).data.ticket).toMatchObject({ key: ticket.key, assigneeId: agent.user.id });
+      expect((await call(worker, "transfer_ticket", { key: ticket.key, boardId: general.id })).data).toMatchObject({ key: ticket.key, boardId: general.id, status: "in_progress" });
+      expect((await call(worker, "delete_board", { boardId: bugs.id })).data).toEqual({ deleted: bugs.id });
+      expect((await api.listActivity({ projectKey: "MCPBOARDS" })).filter((e) => e.action === "ticket.transferred")[0]?.actorId).toBe(agent.user.id);
+    } finally {
+      await worker.close();
+    }
+  });
+});
+
 describe("lanes", () => {
   const laneIds = (data: { lanes: { id: string }[] }) => data.lanes.map((l) => l.id).join(" ");
 
   it("adds, renames, moves and removes lanes", async () => {
     await createClient({ url, token }).createProject({ key: "MCPL", name: "MCP lanes" });
-    const added = await call(mcp, "add_lane", { projectKey: "MCPL", name: "QA" });
+    const sibling = (await call(mcp, "create_board", { projectKey: "MCPL", name: "Bugs" })).data;
+    const added = await call(mcp, "add_lane", { boardId: "MCPL-general", name: "QA" });
     expect(laneIds(added.data)).toBe("backlog todo in_progress in_review done qa");
-    expect(laneIds((await call(mcp, "add_lane", { projectKey: "MCPL", name: "Icebox", position: 1 })).data)).toBe(
+    expect(laneIds((await call(mcp, "add_lane", { boardId: "MCPL-general", name: "Icebox", position: 1 })).data)).toBe(
       "icebox backlog todo in_progress in_review done qa",
     );
-    const renamed = await call(mcp, "rename_lane", { projectKey: "MCPL", laneId: "todo", name: "Ready" });
+    const renamed = await call(mcp, "rename_lane", { boardId: "MCPL-general", laneId: "todo", name: "Ready" });
     expect(renamed.data.lanes).toContainEqual({ id: "todo", name: "Ready" });
-    expect(laneIds((await call(mcp, "move_lane", { projectKey: "MCPL", laneId: "qa", position: 2 })).data)).toBe(
+    expect(laneIds((await call(mcp, "move_lane", { boardId: "MCPL-general", laneId: "qa", position: 2 })).data)).toBe(
       "icebox qa backlog todo in_progress in_review done",
     );
-    expect(laneIds((await call(mcp, "remove_lane", { projectKey: "MCPL", laneId: "icebox" })).data)).toBe(
+    expect(laneIds((await call(mcp, "remove_lane", { boardId: "MCPL-general", laneId: "icebox" })).data)).toBe(
       "qa backlog todo in_progress in_review done",
     );
-    const listed = (await call(mcp, "list_projects")).data.find((p: { key: string }) => p.key === "MCPL");
+    const listed = (await call(mcp, "get_board", { boardId: "MCPL-general" })).data;
     expect(laneIds(listed)).toBe("qa backlog todo in_progress in_review done");
+    expect((await call(mcp, "get_board", { boardId: sibling.id })).data.lanes).toEqual(DEFAULT_LANES);
   });
 
   it("explains why an edit is refused", async () => {
     await createClient({ url, token }).createProject({ key: "MCPM", name: "MCP lanes 2" });
     await call(mcp, "create_ticket", { projectKey: "MCPM", title: "stuck", status: "todo" });
-    expect(await call(mcp, "remove_lane", { projectKey: "MCPM", laneId: "todo" })).toMatchObject({
+    expect(await call(mcp, "remove_lane", { boardId: "MCPM-general", laneId: "todo" })).toMatchObject({
       isError: true,
       text: "Lane Todo still has 1 ticket; move them first",
     });
-    expect((await call(mcp, "rename_lane", { projectKey: "MCPM", laneId: "nope", name: "X" })).text).toContain("has no lane nope");
-    expect((await call(mcp, "move_lane", { projectKey: "MCPM", laneId: "todo", position: 0 })).isError).toBe(true);
+    expect((await call(mcp, "rename_lane", { boardId: "MCPM-general", laneId: "nope", name: "X" })).text).toContain("has no lane nope");
+    expect((await call(mcp, "move_lane", { boardId: "MCPM-general", laneId: "todo", position: 0 })).isError).toBe(true);
   });
 });
 
@@ -189,7 +221,8 @@ describe("users and activity", () => {
     const me = (await call(mcp, "whoami")).data;
 
     const log = (await call(mcp, "list_activity", { projectKey: "MCPN" })).data;
-    expect(log.map((e: { action: string }) => e.action)).toEqual(["ticket.moved", "ticket.created", "project.created"]);
+    expect(log.slice(0, 2).map((e: { action: string }) => e.action)).toEqual(["ticket.moved", "ticket.created"]);
+    expect(log.slice(2).map((e: { action: string }) => e.action).sort()).toEqual(["board.created", "project.created"]);
     expect(log[0]).toMatchObject({ actorId: me.id, ticketKey: "MCPN-1", data: { from: "backlog", to: "done" } });
     expect(log[0]).not.toHaveProperty("projectKey");
     expect(log[2]).toMatchObject({ projectKey: "MCPN" });

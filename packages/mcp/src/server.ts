@@ -1,11 +1,15 @@
 import {
+  BoardIdSchema,
+  CreateBoardInputSchema,
+  CreateProjectInputSchema,
+  RenameBoardInputSchema,
   LaneIdSchema,
   PrioritySchema,
   ProjectKeySchema,
   StatusSchema,
   TicketKeySchema,
   TicketLinksSchema,
-  type Project,
+  type Board,
   type Ticket,
 } from "@sumi/contract";
 import { ApiError, type Client } from "@sumi/client";
@@ -17,6 +21,7 @@ import { z } from "zod";
 function brief(t: Ticket, full: boolean) {
   return {
     key: t.key,
+    boardId: t.boardId,
     title: t.title,
     status: t.status,
     ...(t.priority && { priority: t.priority }),
@@ -53,12 +58,13 @@ type Args<S extends z.ZodRawShape> = z.infer<z.ZodObject<S>>;
 
 const projectKey = ProjectKeySchema.describe("Project key, e.g. SUMI");
 const ticketKey = TicketKeySchema.describe("Ticket key, e.g. SUMI-12");
+const boardId = BoardIdSchema.describe("Stable board id, see list_boards");
 
-const laneId = LaneIdSchema.describe("Lane id, see list_projects");
+const laneId = LaneIdSchema.describe("Lane id, see get_board or list_boards");
 const laneName = z.string().describe("What the board shows, up to 40 characters");
 
 const addLaneShape = {
-  projectKey,
+  boardId,
   name: laneName,
   position: z.number().int().positive().optional().describe("1 is the leftmost lane; default: last"),
 };
@@ -71,15 +77,17 @@ const activityShape = {
 
 const listShape = {
   projectKey,
+  boardId: boardId.optional().describe("Only this board; omit for all boards in the project"),
   status: StatusSchema.optional().describe("Only tickets in this lane (lane id)"),
   assigneeId: z.string().optional().describe("Only tickets assigned to this user id"),
 };
 
 const createShape = {
   projectKey,
+  boardId: boardId.optional().describe("Required when the project has multiple boards"),
   title: z.string().describe("Short summary"),
   description: z.string().optional().describe("Markdown"),
-  status: StatusSchema.optional().describe("Lane id, default the first lane of the project"),
+  status: StatusSchema.optional().describe("Lane id, default the first lane of the board"),
   priority: PrioritySchema.optional(),
   assigneeId: z.string().optional(),
   links: TicketLinksSchema.optional().describe("repo (owner/name), branch, pr (number)"),
@@ -99,7 +107,7 @@ export function createServer(client: Client): McpServer {
     { name: "sumi", version: "0.0.0" },
     {
       instructions:
-        "Sumi is a ticket system. A ticket's status is the id of a lane on its project's board (list_projects shows them; new projects start with backlog, todo, in_progress, in_review, done). " +
+        "Sumi is a ticket system. Projects contain boards (list_boards); tickets belong to one board and keep project-wide keys. Each board owns its lanes (get_board or list_boards); a ticket's status is a lane id on its board. New boards start with backlog, todo, in_progress, in_review, done. " +
         "To start work call claim_next_ticket; when finished move the ticket to in_review and put the PR in links.",
     },
   );
@@ -112,8 +120,45 @@ export function createServer(client: Client): McpServer {
 
   server.registerTool(
     "list_projects",
-    { description: "List projects (key, name and lanes: the ids a ticket status can be)." },
-    tool(() => client.listProjects().then((ps) => ps.map((p) => ({ key: p.key, name: p.name, lanes: p.lanes })))),
+    { description: "List projects (key and name). Use list_boards for lanes." },
+    tool(() => client.listProjects().then((ps) => ps.map((p) => ({ key: p.key, name: p.name })))),
+  );
+
+  server.registerTool(
+    "create_project",
+    { description: "Create a project with a General board using default lanes.", inputSchema: CreateProjectInputSchema.shape },
+    tool((input: z.infer<typeof CreateProjectInputSchema>) => client.createProject(input)),
+  );
+
+  server.registerTool(
+    "list_boards",
+    { description: "List a project's boards with stable ids and their own lanes.", inputSchema: { projectKey } },
+    tool(({ projectKey }: { projectKey: string }) => client.listBoards(projectKey)),
+  );
+  server.registerTool(
+    "get_board",
+    { description: "Get a board and its lanes, in column order.", inputSchema: { boardId } },
+    tool(({ boardId }: { boardId: string }) => client.getBoard(boardId)),
+  );
+  server.registerTool(
+    "create_board",
+    { description: "Create a board within a project with its own default columns.", inputSchema: CreateBoardInputSchema.shape },
+    tool((input: z.infer<typeof CreateBoardInputSchema>) => client.createBoard(input)),
+  );
+  server.registerTool(
+    "rename_board",
+    { description: "Rename a board without changing its id or tickets.", inputSchema: { boardId, ...RenameBoardInputSchema.shape } },
+    tool(({ boardId, name }: { boardId: string; name: string }) => client.renameBoard(boardId, { name })),
+  );
+  server.registerTool(
+    "delete_board",
+    { description: "Delete an empty board. Refused for non-empty boards or the project's last board.", inputSchema: { boardId } },
+    tool(async ({ boardId }: { boardId: string }) => { await client.deleteBoard(boardId); return { deleted: boardId }; }),
+  );
+  server.registerTool(
+    "transfer_ticket",
+    { description: "Transfer a ticket within its project, preserving key and history. Keeps status if the destination has it; otherwise uses its first lane.", inputSchema: { key: ticketKey, boardId } },
+    tool(async ({ key, boardId }: { key: string; boardId: string }) => brief(await client.transferTicket(key, { boardId }), true)),
   );
 
   server.registerTool(
@@ -150,7 +195,7 @@ export function createServer(client: Client): McpServer {
   server.registerTool(
     "create_ticket",
     {
-      description: "Create a ticket. Status defaults to the first lane (usually backlog). Put acceptance criteria in the description (markdown).",
+      description: "Create a ticket. Status defaults to the board's first lane (usually backlog). Put acceptance criteria in the description (markdown).",
       inputSchema: createShape,
     },
     tool(async ({ projectKey, title, ...rest }: Args<typeof createShape>) =>
@@ -176,7 +221,7 @@ export function createServer(client: Client): McpServer {
   server.registerTool(
     "move_ticket",
     {
-      description: "Move a ticket to another status (a lane id of its project). Any status can move to any other.",
+      description: "Move a ticket to another status (a lane id of its board). Any status can move to any other.",
       inputSchema: { key: ticketKey, status: StatusSchema },
     },
     tool(async ({ key, status }: { key: string; status: z.infer<typeof StatusSchema> }) =>
@@ -216,51 +261,51 @@ export function createServer(client: Client): McpServer {
     ),
   );
 
-  const lanes = (p: Project) => ({ lanes: p.lanes });
+  const lanes = (b: Board) => ({ boardId: b.id, lanes: b.lanes });
 
   server.registerTool(
     "add_lane",
     {
       description:
-        "Add a lane (board column) to a project. Its id is made from the name. It goes last unless position is given. " +
-        "Returns the project's lanes.",
+        "Add a lane (column) to a board. Its id is made from the name. It goes last unless position is given. " +
+        "Returns the board's lanes.",
       inputSchema: addLaneShape,
     },
-    tool(async ({ projectKey, name, position }: Args<typeof addLaneShape>) =>
-      lanes(await client.addLane(projectKey, name, position)),
+    tool(async ({ boardId, name, position }: Args<typeof addLaneShape>) =>
+      lanes(await client.addLane(boardId, name, position)),
     ),
   );
 
   server.registerTool(
     "rename_lane",
     {
-      description: "Rename a lane. Its id, and so its tickets, stay as they are. Returns the project's lanes.",
-      inputSchema: { projectKey, laneId, name: laneName },
+      description: "Rename a lane on one board. Its id, and so its tickets, stay as they are. Returns the board's lanes.",
+      inputSchema: { boardId, laneId, name: laneName },
     },
-    tool(async ({ projectKey, laneId, name }: { projectKey: string; laneId: string; name: string }) =>
-      lanes(await client.renameLane(projectKey, laneId, name)),
+    tool(async ({ boardId, laneId, name }: { boardId: string; laneId: string; name: string }) =>
+      lanes(await client.renameLane(boardId, laneId, name)),
     ),
   );
 
   server.registerTool(
     "move_lane",
     {
-      description: "Move a lane to a place on the board (1 is the leftmost). Returns the project's lanes.",
-      inputSchema: { projectKey, laneId, position: z.number().int().positive().describe("1 is the leftmost lane") },
+      description: "Move a lane on one board (1 is the leftmost). Returns the board's lanes.",
+      inputSchema: { boardId, laneId, position: z.number().int().positive().describe("1 is the leftmost lane") },
     },
-    tool(async ({ projectKey, laneId, position }: { projectKey: string; laneId: string; position: number }) =>
-      lanes(await client.moveLane(projectKey, laneId, position)),
+    tool(async ({ boardId, laneId, position }: { boardId: string; laneId: string; position: number }) =>
+      lanes(await client.moveLane(boardId, laneId, position)),
     ),
   );
 
   server.registerTool(
     "remove_lane",
     {
-      description: "Remove a lane. Refused while it still has tickets: move them first. Returns the project's lanes.",
-      inputSchema: { projectKey, laneId },
+      description: "Remove a lane from one board. Refused while it holds tickets on that board. Returns the board's lanes.",
+      inputSchema: { boardId, laneId },
     },
-    tool(async ({ projectKey, laneId }: { projectKey: string; laneId: string }) =>
-      lanes(await client.removeLane(projectKey, laneId)),
+    tool(async ({ boardId, laneId }: { boardId: string; laneId: string }) =>
+      lanes(await client.removeLane(boardId, laneId)),
     ),
   );
 
@@ -269,11 +314,11 @@ export function createServer(client: Client): McpServer {
     {
       description:
         "Atomically take the oldest unassigned todo ticket in a project (or a todo ticket already assigned to you), " +
-        "assign it to you and move it to in_progress. Needs the project to still have its todo and in_progress lanes. Returns {ticket: null} when none is available. Safe to call concurrently.",
-      inputSchema: { projectKey },
+        "assign it to you and move it to in_progress. Skips boards missing todo or in_progress; an explicitly selected board must have both. Returns {ticket: null} when none is available. Safe to call concurrently.",
+      inputSchema: { projectKey, boardId: boardId.optional().describe("Claim only from this board; omit for all boards") },
     },
-    tool(async ({ projectKey }: { projectKey: string }) => {
-      const ticket = await client.claimNext(projectKey);
+    tool(async ({ projectKey, boardId }: { projectKey: string; boardId?: string | undefined }) => {
+      const ticket = await client.claimNext(projectKey, boardId);
       return { ticket: ticket && brief(ticket, true) };
     }),
   );

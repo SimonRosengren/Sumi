@@ -1,6 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import {
   ClaimNextInputSchema,
+  BoardIdSchema,
+  CreateBoardInputSchema,
   CreateAgentInputSchema,
   CreateCommentInputSchema,
   CreateProjectInputSchema,
@@ -11,9 +13,11 @@ import {
   ListTokensInputSchema,
   MoveTicketInputSchema,
   ProjectKeySchema,
+  RenameBoardInputSchema,
   SetLanesInputSchema,
   TicketKeySchema,
   TokenIdSchema,
+  TransferTicketInputSchema,
   UpdateTicketInputSchema,
   type ErrorCode,
   type AuthConfig,
@@ -131,15 +135,32 @@ export function createApp(core: Core, options: AppOptions = {}) {
   });
 
   app.put(
-    "/projects/:key/lanes",
-    validate("param", z.object({ key: ProjectKeySchema })),
+    "/boards/:id/lanes",
+    validate("param", z.object({ id: BoardIdSchema })),
     validate("json", SetLanesInputSchema),
-    async (c) => c.json(await core.projects.setLanes(c.get("user").id, c.req.valid("param").key, c.req.valid("json"))),
+    async (c) => c.json(await core.boards.setLanes(c.get("user").id, c.req.valid("param").id, c.req.valid("json"))),
   );
 
   app.get("/tickets", validate("query", ListTicketsInputSchema), async (c) =>
     c.json(await core.tickets.list(c.req.valid("query"))),
   );
+
+  app.get("/boards", validate("query", z.object({ projectKey: ProjectKeySchema })), async (c) =>
+    c.json(await core.boards.list(c.req.valid("query").projectKey)),
+  );
+  app.post("/boards", validate("json", CreateBoardInputSchema), async (c) =>
+    c.json(await core.boards.create(c.get("user").id, c.req.valid("json")), 201),
+  );
+  app.get("/boards/:id", validate("param", z.object({ id: BoardIdSchema })), async (c) =>
+    c.json(await core.boards.get(c.req.valid("param").id)),
+  );
+  app.patch("/boards/:id", validate("param", z.object({ id: BoardIdSchema })), validate("json", RenameBoardInputSchema), async (c) =>
+    c.json(await core.boards.rename(c.get("user").id, c.req.valid("param").id, c.req.valid("json"))),
+  );
+  app.delete("/boards/:id", validate("param", z.object({ id: BoardIdSchema })), async (c) => {
+    await core.boards.delete(c.get("user").id, c.req.valid("param").id);
+    return c.body(null, 204);
+  });
 
   app.post("/tickets", validate("json", CreateTicketInputSchema), async (c) => {
     const ticket = await core.tickets.create(c.get("user").id, c.req.valid("json"));
@@ -167,6 +188,10 @@ export function createApp(core: Core, options: AppOptions = {}) {
     const { key } = c.req.valid("param");
     return c.json(await core.tickets.move(c.get("user").id, key, c.req.valid("json")));
   });
+
+  app.post("/tickets/:key/transfer", validate("param", KeyParamSchema), validate("json", TransferTicketInputSchema), async (c) =>
+    c.json(await core.tickets.transfer(c.get("user").id, c.req.valid("param").key, c.req.valid("json"))),
+  );
 
   app.get("/tickets/:key/comments", validate("param", KeyParamSchema), async (c) =>
     c.json(await core.comments.list(c.req.valid("param").key)),

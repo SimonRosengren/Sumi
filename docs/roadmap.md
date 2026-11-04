@@ -18,3 +18,5 @@
 - [x] 12. Manage API tokens in the web UI
 - [x] 13. Delete a project (CLI and API)
 - [ ] 14. Public website (SUMI-17): scaffold done, demo, SEO files and deploy open
+- [x] 15. Multiple boards per project, board-owned columns, ticket transfers
+- [x] 16. Combined view across selected boards and projects; same-project columns merge by name

@@ -1,4 +1,5 @@
 import { MongoClient, type Db } from "mongodb";
+import { DEFAULT_LANES } from "@sumi/contract";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCore } from "../src";
 import { MIGRATIONS, runMigrations, type Migration } from "../src/migrations";
@@ -90,6 +91,69 @@ describe("runMigrations", () => {
 });
 
 describe("MIGRATIONS", () => {
+  it("copies project lanes to every board, preserves existing board lanes and is retry-safe", async () => {
+    const d = freshDb();
+    await runMigrations(d, MIGRATIONS.slice(0, 2));
+    const createdAt = new Date("2026-01-01T00:00:00Z");
+    const custom = [{ id: "inbox", name: "Inbox" }, { id: "done", name: "Shipped" }];
+    await d.collection<{ _id: string; name: string; lastNumber: number; createdAt: Date; lanes?: typeof custom }>("projects").insertMany([
+      { _id: "CUSTOM", name: "Custom", lastNumber: 7, lanes: custom, createdAt },
+      { _id: "DEFAULT", name: "Default", lastNumber: 0, createdAt },
+    ]);
+    const boards = d.collection<{ _id: string; projectKey: string; name: string; createdAt: Date; lanes?: typeof custom }>("boards");
+    await boards.insertMany([
+      { _id: "features", projectKey: "CUSTOM", name: "Features", createdAt },
+      { _id: "bugs", projectKey: "CUSTOM", name: "Bugs", createdAt },
+      { _id: "already", projectKey: "CUSTOM", name: "Already", lanes: [{ id: "ready", name: "Ready" }], createdAt },
+      { _id: "default", projectKey: "DEFAULT", name: "Default", createdAt },
+    ]);
+    await d.collection("tickets").insertOne({ key: "CUSTOM-7", boardId: "features", status: "inbox" });
+    await d.collection("activity").insertOne({ action: "project.lanes_updated", data: { lanes: custom } });
+    const ticketsBefore = await d.collection("tickets").find().toArray();
+    const historyBefore = await d.collection("activity").find().toArray();
+    const migration = MIGRATIONS[2]!;
+    await Promise.all([migration.up(d), migration.up(d)]);
+    await migration.up(d);
+    expect((await boards.findOne({ _id: "features" }))?.lanes).toEqual(custom);
+    expect((await boards.findOne({ _id: "bugs" }))?.lanes).toEqual(custom);
+    expect((await boards.findOne({ _id: "default" }))?.lanes).toEqual(DEFAULT_LANES);
+    expect((await boards.findOne({ _id: "already" }))?.lanes).toEqual([{ id: "ready", name: "Ready" }]);
+    expect(await d.collection("projects").countDocuments({ lanes: { $exists: true } })).toBe(0);
+    expect(await d.collection("tickets").find().toArray()).toEqual(ticketsBefore);
+    expect(await d.collection("activity").find().toArray()).toEqual(historyBefore);
+    expect(await runMigrations(d)).toEqual([migration.id]);
+    expect(await runMigrations(d)).toEqual([]);
+  });
+
+  it("backfills General boards without changing ticket keys, workflows, history or existing membership", async () => {
+    const d = freshDb();
+    await runMigrations(d, MIGRATIONS.slice(0, 1));
+    const createdAt = new Date("2026-01-01T00:00:00Z");
+    await d.collection<{ _id: string; name: string; lastNumber: number; createdAt: Date; lanes?: { id: string; name: string }[] }>("projects").insertMany([
+      { _id: "LEGACY", name: "Legacy", lastNumber: 9, lanes: [{ id: "inbox", name: "Inbox" }], createdAt },
+      { _id: "DEFAULT", name: "Default", lastNumber: 0, createdAt },
+    ]);
+    const tickets = d.collection<{ _id: string; projectKey: string; boardId?: string; status: string }>("tickets");
+    await tickets.insertMany([
+      { _id: "LEGACY-9", projectKey: "LEGACY", status: "inbox" },
+      { _id: "LEGACY-8", projectKey: "LEGACY", boardId: "already-assigned", status: "inbox" },
+    ]);
+    await d.collection("activity").insertOne({ action: "ticket.commented", ticketKey: "LEGACY-9", data: { body: "Keep me" } });
+    const projectsBefore = await d.collection("projects").find().toArray();
+    const historyBefore = await d.collection("activity").find().toArray();
+
+    const migration = MIGRATIONS[1]!;
+    await Promise.all([migration.up(d), migration.up(d)]);
+    await migration.up(d); // restart after a crash before recording the migration
+    expect(await d.collection("boards").countDocuments()).toBe(2);
+    expect(await tickets.findOne({ _id: "LEGACY-9" })).toEqual({ _id: "LEGACY-9", projectKey: "LEGACY", boardId: "LEGACY-general", status: "inbox" });
+    expect((await tickets.findOne({ _id: "LEGACY-8" }))?.boardId).toBe("already-assigned");
+    expect(await d.collection("projects").find().toArray()).toEqual(projectsBefore);
+    expect(await d.collection("activity").find().toArray()).toEqual(historyBefore);
+    expect(await runMigrations(d, MIGRATIONS.slice(0, 2))).toEqual([migration.id]);
+    expect(await runMigrations(d, MIGRATIONS.slice(0, 2))).toEqual([]);
+  });
+
   it("have unique, sorted ids", () => {
     const ids = MIGRATIONS.map((m) => m.id);
     expect(new Set(ids).size).toBe(ids.length);

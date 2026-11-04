@@ -4,18 +4,20 @@ import {
   ListTicketsInputSchema,
   MoveTicketInputSchema,
   TicketKeySchema,
+  TransferTicketInputSchema,
   UpdateTicketInputSchema,
   type ClaimNextInput,
   type CreateTicketInput,
   type ListTicketsInput,
   type MoveTicketInput,
   type Ticket,
+  type TransferTicketInput,
   type UpdateTicketInput,
 } from "@sumi/contract";
 import type { Filter, UpdateFilter } from "mongodb";
-import type { ProjectDoc, TicketDoc } from "./db";
+import type { BoardDoc, TicketDoc } from "./db";
 import { ConflictError, NotFoundError, ValidationError, parse } from "./errors";
-import { assertUserExists, lanesOf, recordActivity, type Ctx } from "./shared";
+import { assertBoard, assertUserExists, lockProject, recordActivity, type Ctx } from "./shared";
 
 function toTicket(doc: TicketDoc): Ticket {
   const { _id, ...rest } = doc;
@@ -26,10 +28,10 @@ function toTicket(doc: TicketDoc): Ticket {
 export const CLAIM_FROM = "todo";
 export const CLAIM_TO = "in_progress";
 
-function assertLane(project: ProjectDoc, status: string): void {
-  const lanes = lanesOf(project);
+function assertLane(board: BoardDoc, status: string): void {
+  const lanes = board.lanes;
   if (!lanes.some((l) => l.id === status)) {
-    throw new ValidationError(`Project ${project._id} has no lane ${status} (lanes: ${lanes.map((l) => l.id).join(", ")})`);
+    throw new ValidationError(`Board ${board._id} has no lane ${status} (lanes: ${lanes.map((l) => l.id).join(", ")})`);
   }
 }
 
@@ -51,14 +53,22 @@ export function createTicketService({ cols, tx }: Ctx) {
           { returnDocument: "after", session },
         );
         if (!project) throw new NotFoundError(`Project ${data.projectKey} not found`);
-        const status = data.status ?? lanesOf(project)[0]?.id;
-        if (status === undefined) throw new ConflictError(`Project ${project._id} has no lanes`);
-        assertLane(project, status);
+        let boardId = data.boardId;
+        if (boardId === undefined) {
+          const boards = await cols.boards.find({ projectKey: data.projectKey }, { session }).limit(2).toArray();
+          if (boards.length !== 1) throw new ValidationError("Choose a boardId when a project has multiple boards");
+          boardId = boards[0]!._id;
+        }
+        const board = await assertBoard(cols, data.projectKey, boardId, session);
+        const status = data.status ?? board.lanes[0]?.id;
+        if (status === undefined) throw new ConflictError(`Board ${boardId} has no lanes`);
+        assertLane(board, status);
 
         const now = new Date();
         const doc: TicketDoc = {
           _id: `${data.projectKey}-${project.lastNumber}`,
           projectKey: data.projectKey,
+          boardId,
           number: project.lastNumber,
           title: data.title,
           description: data.description,
@@ -75,7 +85,7 @@ export function createTicketService({ cols, tx }: Ctx) {
           action: "ticket.created",
           projectKey: doc.projectKey,
           ticketKey: doc._id,
-          data: { title: doc.title, status: doc.status },
+          data: { title: doc.title, status: doc.status, boardId },
         });
         return toTicket(doc);
       });
@@ -89,10 +99,37 @@ export function createTicketService({ cols, tx }: Ctx) {
     async list(input: ListTicketsInput): Promise<Ticket[]> {
       const data = parse(ListTicketsInputSchema, input);
       const filter: Filter<TicketDoc> = { projectKey: data.projectKey };
+      if (data.boardId !== undefined) {
+        await assertBoard(cols, data.projectKey, data.boardId);
+        filter.boardId = data.boardId;
+      }
       if (data.status !== undefined) filter.status = data.status;
       if (data.assigneeId !== undefined) filter.assigneeId = data.assigneeId;
       const docs = await cols.tickets.find(filter).sort({ number: 1 }).toArray();
       return docs.map(toTicket);
+    },
+
+    /** Preserves status when the destination has it; otherwise uses its first lane. */
+    async transfer(actorId: string, key: string, input: TransferTicketInput): Promise<Ticket> {
+      parse(TicketKeySchema, key);
+      const { boardId } = parse(TransferTicketInputSchema, input);
+      return tx(async (session) => {
+        await assertUserExists(cols, actorId, session, "Actor");
+        const before = await cols.tickets.findOne({ _id: key }, { session });
+        if (!before) throw notFound(key);
+        await lockProject(cols, before.projectKey, session);
+        const board = await assertBoard(cols, before.projectKey, boardId, session);
+        if (before.boardId === boardId) return toTicket(before);
+        const status = board.lanes.some((l) => l.id === before.status) ? before.status : board.lanes[0]?.id;
+        if (!status) throw new ConflictError(`Board ${boardId} has no lanes`);
+        const updatedAt = new Date();
+        await cols.tickets.updateOne({ _id: key }, { $set: { boardId, status, updatedAt } }, { session });
+        await recordActivity(cols, session, {
+          actorId, action: "ticket.transferred", projectKey: before.projectKey, ticketKey: key,
+          data: { from: before.boardId, to: boardId, fromStatus: before.status, toStatus: status },
+        });
+        return toTicket({ ...before, boardId, status, updatedAt });
+      });
     },
 
     /** Changes only the provided fields. `links` replaces the whole links object. */
@@ -142,10 +179,10 @@ export function createTicketService({ cols, tx }: Ctx) {
       const { status } = parse(MoveTicketInputSchema, input);
       return tx(async (session) => {
         await assertUserExists(cols, actorId, session, "Actor");
-        // A key is `<project key>-<number>`, so the project is known without reading the ticket.
-        const project = await cols.projects.findOne({ _id: key.slice(0, key.lastIndexOf("-")) }, { session });
-        if (!project) throw notFound(key);
-        assertLane(project, status);
+        const ticket = await cols.tickets.findOne({ _id: key }, { session });
+        if (!ticket) throw notFound(key);
+        await lockProject(cols, ticket.projectKey, session);
+        assertLane(await assertBoard(cols, ticket.projectKey, ticket.boardId, session), status);
         const before = await cols.tickets.findOneAndUpdate(
           { _id: key, status: { $ne: status } },
           { $set: { status, updatedAt: new Date() } },
@@ -172,22 +209,24 @@ export function createTicketService({ cols, tx }: Ctx) {
      * Atomically takes the oldest ticket in the `todo` lane that is unassigned (or already
      * assigned to the actor), assigns it to the actor and moves it to `in_progress`.
      * Returns null when nothing is available. Two actors can never get the same ticket.
-     * Fails when the project has deleted either lane.
+     * Skips boards without both lanes; an explicitly selected board must have both.
      */
     async claimNext(actorId: string, input: ClaimNextInput): Promise<Ticket | null> {
-      const { projectKey } = parse(ClaimNextInputSchema, input);
+      const { projectKey, boardId } = parse(ClaimNextInputSchema, input);
       return tx(async (session) => {
         await assertUserExists(cols, actorId, session, "Actor");
-        const project = await cols.projects.findOne({ _id: projectKey }, { session });
-        if (!project) throw new NotFoundError(`Project ${projectKey} not found`);
-        for (const id of [CLAIM_FROM, CLAIM_TO]) {
-          if (!lanesOf(project).some((l) => l.id === id)) {
-            throw new ConflictError(`Project ${projectKey} has no ${id} lane, so there is nothing to claim`);
-          }
+        await lockProject(cols, projectKey, session);
+        if (boardId !== undefined) await assertBoard(cols, projectKey, boardId, session);
+        const eligible = await cols.boards.find({
+          projectKey, ...(boardId !== undefined && { _id: boardId }), "lanes.id": { $all: [CLAIM_FROM, CLAIM_TO] },
+        }, { session }).toArray();
+        if (boardId !== undefined && eligible.length === 0) {
+          throw new ConflictError(`Board ${boardId} needs todo and in_progress lanes to claim tickets`);
         }
         const doc = await cols.tickets.findOneAndUpdate(
           {
             projectKey,
+            boardId: { $in: eligible.map((b) => b._id) },
             status: CLAIM_FROM,
             $or: [{ assigneeId: { $exists: false } }, { assigneeId: actorId }],
           },

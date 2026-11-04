@@ -1,6 +1,7 @@
 import {
   ActivityEntrySchema,
   AgentCreatedSchema,
+  BoardSchema,
   CommentSchema,
   ErrorResponseSchema,
   ProjectSchema,
@@ -56,7 +57,7 @@ describe("agents", () => {
     const project = await api().call("POST", "/projects", { token, body: { key: "AGT", name: "Agent made" } });
     expect(project.status).toBe(201);
     const log = await api().call("GET", "/activity?projectKey=AGT");
-    expect(log.body[0]).toMatchObject({ actorId: user.id, action: "project.created" });
+    expect(log.body).toContainEqual(expect.objectContaining({ actorId: user.id, action: "project.created" }));
   });
 
   it("lists users so clients can show names", async () => {
@@ -132,38 +133,40 @@ describe("projects and tickets", () => {
     expect(second).toEqual({ status: 200, body: { ticket: null } });
   });
 
-  it("edits a project's lanes, and refuses removing one that holds tickets", async () => {
+  it("edits a board's lanes, and refuses removing one that holds tickets", async () => {
     const h = api();
     await h.call("POST", "/projects", { body: { key: "LANE", name: "Lanes" } });
     await h.call("POST", "/tickets", { body: { projectKey: "LANE", title: "x" } }); // first lane: backlog
 
-    const saved = await h.call("PUT", "/projects/LANE/lanes", {
+    const saved = await h.call("PUT", "/boards/LANE-general/lanes", {
       body: { lanes: [{ id: "todo", name: "Ready" }, { id: "backlog", name: "Backlog" }, { name: "Shipping" }] },
     });
     expect(saved.status).toBe(200);
-    expect(ProjectSchema.parse(saved.body).lanes).toEqual([
+    expect(BoardSchema.parse(saved.body).lanes).toEqual([
       { id: "todo", name: "Ready" },
       { id: "backlog", name: "Backlog" },
       { id: "shipping", name: "Shipping" },
     ]);
-    expect(z.array(ProjectSchema).parse((await h.call("GET", "/projects")).body).find((p) => p.key === "LANE")?.lanes).toHaveLength(3);
+    expect(BoardSchema.parse((await h.call("GET", "/boards/LANE-general")).body).lanes).toHaveLength(3);
 
     const moved = await h.call("POST", "/tickets/LANE-1/move", { body: { status: "shipping" } });
     expect(moved.body.status).toBe("shipping");
     const log = await h.call("GET", "/activity?projectKey=LANE&limit=1");
     expect(log.body[0]).toMatchObject({ action: "ticket.moved" });
 
-    const removing = await h.call("PUT", "/projects/LANE/lanes", { body: { lanes: [{ id: "todo", name: "Ready" }] } });
+    const removing = await h.call("PUT", "/boards/LANE-general/lanes", { body: { lanes: [{ id: "todo", name: "Ready" }] } });
     expect(removing.status).toBe(409);
     expect((await h.call("POST", "/tickets/LANE-1/move", { body: { status: "done" } })).status).toBe(400);
   });
 
   it("validates lane edits", async () => {
     const h = api();
-    expect((await h.call("PUT", "/projects/LANE/lanes", { body: { lanes: [] } })).status).toBe(400);
-    expect((await h.call("PUT", "/projects/nope/lanes", { body: { lanes: [{ name: "A" }] } })).status).toBe(400);
-    expect((await h.call("PUT", "/projects/NONE/lanes", { body: { lanes: [{ name: "A" }] } })).status).toBe(404);
-    expect((await h.call("PUT", "/projects/LANE/lanes", { body: { lanes: [{ name: "A" }] }, token: null })).status).toBe(401);
+    expect((await h.call("PUT", "/boards/LANE-general/lanes", { body: { lanes: [] } })).status).toBe(400);
+    expect((await h.call("PUT", "/boards/bad!/lanes", { body: { lanes: [{ name: "A" }] } })).status).toBe(400);
+    expect((await h.call("PUT", "/boards/NONE/lanes", { body: { lanes: [{ name: "A" }] } })).status).toBe(404);
+    expect((await h.call("PUT", "/boards/LANE-general/lanes", { body: { lanes: [{ name: "A" }] }, token: null })).status).toBe(401);
+    expect((await h.call("GET", "/boards/NONE")).status).toBe(404);
+    expect((await h.call("GET", "/boards/bad!")).status).toBe(400);
   });
 
   it("adds and lists comments, attributed to the caller", async () => {
@@ -203,6 +206,70 @@ describe("projects and tickets", () => {
   });
 });
 
+describe("boards", () => {
+  it("creates, lists, renames, transfers, filters, claims and deletes boards over HTTP", async () => {
+    const h = api();
+    await h.call("POST", "/projects", { body: { key: "BOARDS", name: "Boards" } });
+    const initial = await h.call("GET", "/boards?projectKey=BOARDS");
+    expect(initial.status).toBe(200);
+    const [general] = z.array(BoardSchema).parse(initial.body);
+    expect(general?.name).toBe("General");
+    const created = await h.call("POST", "/boards", { body: { projectKey: "BOARDS", name: "Bugs" } });
+    expect(created.status).toBe(201);
+    const bugs = BoardSchema.parse(created.body);
+    const renamed = await h.call("PATCH", `/boards/${bugs.id}`, { body: { name: "Defects" } });
+    expect(renamed.status).toBe(200);
+    expect(BoardSchema.parse(renamed.body)).toMatchObject({ id: bugs.id, name: "Defects" });
+    expect((await h.call("POST", "/tickets", { body: { projectKey: "BOARDS", title: "Ambiguous" } })).status).toBe(400);
+    const ticket = await h.call("POST", "/tickets", { body: { projectKey: "BOARDS", boardId: bugs.id, title: "Bug", status: "todo" } });
+    expect(ticket.status).toBe(201);
+    expect((await h.call("DELETE", `/boards/${bugs.id}`)).status).toBe(409);
+    const emptyClaim = await h.call("POST", "/tickets/claim-next", { body: { projectKey: "BOARDS", boardId: general!.id } });
+    expect(emptyClaim.body).toEqual({ ticket: null });
+    const claimed = await h.call("POST", "/tickets/claim-next", { body: { projectKey: "BOARDS", boardId: bugs.id } });
+    expect(claimed.body.ticket).toMatchObject({ key: "BOARDS-1", boardId: bugs.id });
+    const transferred = await h.call("POST", "/tickets/BOARDS-1/transfer", { body: { boardId: general!.id } });
+    expect(transferred.status).toBe(200);
+    expect(TicketSchema.parse(transferred.body)).toMatchObject({ key: "BOARDS-1", boardId: general!.id, status: "in_progress" });
+    expect((await h.call("GET", `/tickets?projectKey=BOARDS&boardId=${bugs.id}`)).body).toEqual([]);
+    expect((await h.call("GET", "/tickets?projectKey=BOARDS")).body).toHaveLength(1);
+    expect((await h.call("DELETE", `/boards/${bugs.id}`)).status).toBe(204);
+    expect((await h.call("DELETE", `/boards/${general!.id}`)).status).toBe(409);
+    const log = z.array(ActivityEntrySchema).parse((await h.call("GET", "/activity?projectKey=BOARDS")).body);
+    expect(log.filter((e) => e.action.startsWith("board.")).every((e) => e.actorId === h.aliceId)).toBe(true);
+  });
+
+  it("validates board routes, membership, missing resources and authentication", async () => {
+    const h = api();
+    await h.call("POST", "/projects", { body: { key: "BA", name: "A" } });
+    await h.call("POST", "/projects", { body: { key: "BB", name: "B" } });
+    await h.call("POST", "/tickets", { body: { projectKey: "BA", title: "A" } });
+    const cases: [string, string, object | undefined, number][] = [
+      ["GET", "/boards", undefined, 400],
+      ["GET", "/boards?projectKey=NONE", undefined, 404],
+      ["POST", "/boards", { projectKey: "BA", name: " " }, 400],
+      ["POST", "/boards", { projectKey: "NONE", name: "Bugs" }, 404],
+      ["PATCH", "/boards/BA-general", { name: "" }, 400],
+      ["PATCH", "/boards/missing", { name: "Bugs" }, 404],
+      ["DELETE", "/boards/missing", undefined, 404],
+      ["POST", "/tickets/BA-1/transfer", {}, 400],
+      ["POST", "/tickets/BA-99/transfer", { boardId: "BA-general" }, 404],
+      ["POST", "/tickets/BA-1/transfer", { boardId: "BB-general" }, 404],
+      ["POST", "/tickets", { projectKey: "BA", boardId: "BB-general", title: "Wrong" }, 404],
+      ["GET", "/tickets?projectKey=BA&boardId=BB-general", undefined, 404],
+      ["POST", "/tickets/claim-next", { projectKey: "BA", boardId: "BB-general" }, 404],
+    ];
+    for (const [method, path, body, status] of cases) {
+      const res = await h.call(method, path, body ? { body } : {});
+      expect(res.status, `${method} ${path}`).toBe(status);
+      expect(ErrorResponseSchema.safeParse(res.body).success).toBe(true);
+    }
+    for (const [method, path] of [["GET", "/boards?projectKey=BA"], ["POST", "/boards"], ["PATCH", "/boards/BA-general"], ["DELETE", "/boards/BA-general"], ["POST", "/tickets/BA-1/transfer"]]) {
+      expect((await h.call(method!, path!, { token: null })).status).toBe(401);
+    }
+  });
+});
+
 describe("errors", () => {
   it("maps core errors to statuses", async () => {
     await api().call("POST", "/projects", { body: { key: "ERR", name: "Err" } });
@@ -219,10 +286,12 @@ describe("errors", () => {
   });
 
   it("rejects invalid input with 400 in the standard shape", async () => {
+    await api().call("POST", "/projects", { body: { key: "BADINPUT", name: "Invalid input" } });
+    await api().call("POST", "/tickets", { body: { projectKey: "BADINPUT", title: "Existing ticket" } });
     const cases = [
       api().call("POST", "/projects", { body: { key: "bad key", name: "x" } }),
       api().call("POST", "/tickets", { body: { projectKey: "ERR", title: "" } }),
-      api().call("POST", "/tickets/ERR-1/move", { body: { status: "nope" } }),
+      api().call("POST", "/tickets/BADINPUT-1/move", { body: { status: "nope" } }),
       api().call("PATCH", "/tickets/ERR-1", { body: {} }),
       api().call("GET", "/tickets/not-a-key"),
       api().call("GET", "/tickets"),

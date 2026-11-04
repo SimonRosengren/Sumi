@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { CreateTicketInput, Lane } from "@sumi/contract";
+import type { Board, CreateTicketInput, Lane } from "@sumi/contract";
 import { ChevronDown, X } from "@lucide/vue";
 import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from "reka-ui";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FIELD, CHEVRON, SECTION_LABEL, TEXTAREA } from "@/lib/fields";
@@ -10,6 +10,9 @@ import { FIELD, CHEVRON, SECTION_LABEL, TEXTAREA } from "@/lib/fields";
 const props = defineProps<{
   open: boolean;
   projectKey: string | null;
+  boardName?: string;
+  boards?: Board[];
+  boardId?: string | null;
   lanes: Lane[];
   /** Creates the ticket. Rejects with the server's message. */
   create: (input: Omit<CreateTicketInput, "projectKey">) => Promise<unknown>;
@@ -20,6 +23,10 @@ const titleInput = ref<InstanceType<typeof Input>>();
 const title = ref("");
 const description = ref("");
 const status = ref("");
+const selectedBoardId = ref<string | null>(null);
+const target = computed(() => props.boards?.find((b) => b.id === selectedBoardId.value));
+const targetLanes = computed(() => target.value?.lanes ?? props.lanes);
+watch(selectedBoardId, () => { status.value = targetLanes.value[0]?.id ?? ""; });
 const saving = ref(false);
 const error = ref<string | null>(null);
 
@@ -30,7 +37,8 @@ watch(
     if (!open) return;
     title.value = "";
     description.value = "";
-    status.value = props.lanes[0]?.id ?? "";
+    selectedBoardId.value = props.boardId ?? props.boards?.[0]?.id ?? null;
+    status.value = targetLanes.value[0]?.id ?? "";
     error.value = null;
   },
 );
@@ -41,7 +49,7 @@ async function submit() {
   saving.value = true;
   error.value = null;
   try {
-    await props.create({ title: trimmed, description: description.value, ...(status.value && { status: status.value }) });
+    await props.create({ title: trimmed, description: description.value, ...(status.value && { status: status.value }), ...(props.boards?.length && selectedBoardId.value && { boardId: selectedBoardId.value }) });
     emit("close");
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
@@ -65,7 +73,7 @@ async function submit() {
             <div>
               <DialogTitle class="type-title">New ticket</DialogTitle>
               <DialogDescription class="text-muted-foreground type-field mt-1">
-                In <span class="font-mono text-xs">{{ projectKey }}</span>. Assignee and priority can be set once it exists.
+                <span class="font-mono text-xs">{{ target?.projectKey ?? projectKey }}</span><span v-if="target?.name ?? boardName"> / {{ target?.name ?? boardName }}</span>. Assignee and priority can be set once it exists.
               </DialogDescription>
             </div>
             <DialogClose as-child>
@@ -74,6 +82,16 @@ async function submit() {
               </Button>
             </DialogClose>
           </header>
+
+          <div v-if="boards && boards.length > 1" class="flex flex-col gap-2">
+            <label for="new-board" :class="SECTION_LABEL">Board</label>
+            <div class="relative">
+              <select id="new-board" v-model="selectedBoardId" :class="FIELD">
+                <option v-for="b in boards" :key="b.id" :value="b.id">{{ b.projectKey }} {{ b.name }}</option>
+              </select>
+              <ChevronDown :class="CHEVRON" aria-hidden="true" />
+            </div>
+          </div>
 
           <div class="flex flex-col gap-2">
             <label for="new-title" :class="SECTION_LABEL">Title</label>
@@ -89,7 +107,7 @@ async function submit() {
             <label for="new-status" :class="SECTION_LABEL">Status</label>
             <div class="relative">
               <select id="new-status" v-model="status" :class="FIELD">
-                <option v-for="l in lanes" :key="l.id" :value="l.id">{{ l.name }}</option>
+                <option v-for="l in targetLanes" :key="l.id" :value="l.id">{{ l.name }}</option>
               </select>
               <ChevronDown :class="CHEVRON" aria-hidden="true" />
             </div>

@@ -1,6 +1,6 @@
 import type { ClientSession } from "mongodb";
-import { DEFAULT_LANES, type ActivityAction, type Lane } from "@sumi/contract";
-import type { ActivityDoc, Collections, ProjectDoc, Tx } from "./db";
+import { type ActivityAction } from "@sumi/contract";
+import type { ActivityDoc, BoardDoc, Collections, Tx } from "./db";
 import { ForbiddenError, NotFoundError } from "./errors";
 
 export interface Ctx {
@@ -55,6 +55,14 @@ export async function assertHuman(
   if (actor.kind !== "human") throw new ForbiddenError(message);
 }
 
-export function lanesOf(project: ProjectDoc): Lane[] {
-  return project.lanes ?? DEFAULT_LANES.map((lane) => ({ ...lane }));
+/** Serializes board membership and lane/status changes against project/board deletion. */
+export async function lockProject(cols: Collections, projectKey: string, session: ClientSession): Promise<void> {
+  const result = await cols.projects.updateOne({ _id: projectKey }, { $inc: { boardVersion: 1 } }, { session });
+  if (result.matchedCount === 0) throw new NotFoundError(`Project ${projectKey} not found`);
+}
+
+export async function assertBoard(cols: Collections, projectKey: string, boardId: string, session?: ClientSession): Promise<BoardDoc> {
+  const board = await cols.boards.findOne({ _id: boardId, projectKey }, session ? { session } : {});
+  if (!board) throw new NotFoundError(`Board ${boardId} not found in project ${projectKey}`);
+  return board;
 }

@@ -17,6 +17,7 @@ COPY packages/site/package.json packages/site/
 RUN pnpm install --frozen-lockfile
 
 COPY tsconfig.base.json ./
+COPY assets assets
 COPY packages packages
 RUN pnpm --filter @sumi/web build
 

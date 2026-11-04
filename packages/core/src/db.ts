@@ -20,10 +20,18 @@ export interface ProjectDoc {
   /** The project key, e.g. "SUMI". */
   _id: string;
   name: string;
-  /** Board columns in order. Absent on projects created before lanes were editable: they have the default lanes. */
-  lanes?: Lane[];
   /** Highest ticket number issued so far. Only ever incremented, so keys are never reused. */
   lastNumber: number;
+  /** Serializes board membership and lane/status changes against project/board deletion. */
+  boardVersion?: number;
+  createdAt: Date;
+}
+
+export interface BoardDoc {
+  _id: string;
+  projectKey: string;
+  name: string;
+  lanes: Lane[];
   createdAt: Date;
 }
 
@@ -31,6 +39,7 @@ export interface TicketDoc {
   /** The ticket key, e.g. "SUMI-12". */
   _id: string;
   projectKey: string;
+  boardId: string;
   number: number;
   title: string;
   description: string;
@@ -62,6 +71,7 @@ export interface ActivityDoc {
 export interface Collections {
   users: Collection<UserDoc>;
   projects: Collection<ProjectDoc>;
+  boards: Collection<BoardDoc>;
   tickets: Collection<TicketDoc>;
   tokens: Collection<TokenDoc>;
   activity: Collection<ActivityDoc>;
@@ -71,6 +81,7 @@ export function collections(db: Db): Collections {
   return {
     users: db.collection<UserDoc>("users"),
     projects: db.collection<ProjectDoc>("projects"),
+    boards: db.collection<BoardDoc>("boards"),
     tickets: db.collection<TicketDoc>("tickets"),
     tokens: db.collection<TokenDoc>("tokens"),
     activity: db.collection<ActivityDoc>("activity"),

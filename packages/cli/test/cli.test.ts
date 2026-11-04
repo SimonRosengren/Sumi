@@ -1,6 +1,7 @@
 import {
   ActivityEntrySchema,
   AgentCreatedSchema,
+  BoardSchema,
   CommentSchema,
   ProjectSchema,
   TicketSchema,
@@ -36,6 +37,25 @@ async function sumiJson<S extends z.ZodType>(schema: S, args: string[], env?: Re
   expect(res.code).toBe(0);
   return schema.parse(JSON.parse(res.out)) as z.output<S>;
 }
+
+describe("boards", () => {
+  it("manages boards and scopes creation, listing, transfers and claiming", async () => {
+    await sumiJson(ProjectSchema, ["project", "create", "CLIB", "Boards"]);
+    const [general] = await sumiJson(z.array(BoardSchema), ["board", "list", "CLIB"]);
+    const bugs = await sumiJson(BoardSchema, ["board", "create", "CLIB", "Bugs"]);
+    expect((await sumi(["board", "list", "CLIB"])).out).toContain(`${bugs.id}  CLIB  Bugs`);
+    expect(await sumiJson(BoardSchema, ["board", "rename", bugs.id, "Defects"])).toMatchObject({ id: bugs.id, name: "Defects" });
+    expect((await sumi(["ticket", "create", "CLIB", "Ambiguous"])).code).toBe(1);
+    const ticket = await sumiJson(TicketSchema, ["ticket", "create", "CLIB", "Bug", "--board", bugs.id, "--status", "todo"]);
+    expect(ticket.boardId).toBe(bugs.id);
+    expect((await sumi(["board", "delete", bugs.id])).code).toBe(1);
+    expect(await sumiJson(z.array(TicketSchema), ["ticket", "list", "CLIB", "--board", general!.id])).toEqual([]);
+    const claimed = await sumiJson(z.object({ ticket: TicketSchema.nullable() }), ["ticket", "claim", "CLIB", "--board", bugs.id]);
+    expect(claimed.ticket?.key).toBe(ticket.key);
+    expect(await sumiJson(TicketSchema, ["ticket", "transfer", ticket.key, general!.id])).toMatchObject({ key: ticket.key, boardId: general!.id, status: "in_progress" });
+    expect((await sumi(["board", "delete", bugs.id])).code).toBe(0);
+  });
+});
 
 describe("configuration", () => {
   it("explains a missing token", async () => {
@@ -224,52 +244,55 @@ describe("projects and tickets", () => {
 
 describe("lanes", () => {
   const laneIds = async (key: string) =>
-    (await sumiJson(ProjectSchema.shape.lanes, ["project", "lane", "list", key])).map((l) => l.id).join(" ");
+    (await sumiJson(BoardSchema.shape.lanes, ["board", "lane", "list", `${key}-general`])).map((l) => l.id).join(" ");
 
-  it("lists a project's lanes, which are the statuses tickets can have", async () => {
+  it("lists a board's lanes, which are the statuses tickets can have", async () => {
     await sumi(["project", "create", "LNE", "Lanes"]);
     expect(await laneIds("LNE")).toBe("backlog todo in_progress in_review done");
-    expect((await sumi(["project", "lane", "list", "LNE"])).out.split("\n")[2]).toBe("in_progress   In progress");
+    expect((await sumi(["board", "lane", "list", "LNE-general"])).out.split("\n")[2]).toBe("in_progress   In progress");
+    expect((await sumiJson(BoardSchema, ["board", "get", "LNE-general"])).lanes).toHaveLength(5);
 
     const bad = await sumi(["ticket", "create", "LNE", "x", "--status", "nope"]);
     expect(bad).toMatchObject({ code: 1 });
     expect(bad.err).toContain("no lane nope");
-    expect((await sumi(["project", "lane", "list", "NOPE"])).err).toBe("error: Project NOPE not found\n");
+    expect((await sumi(["board", "lane", "list", "NOPE"])).err).toBe("error: Board NOPE not found\n");
   });
 
   it("adds, renames, moves and removes lanes", async () => {
     await sumi(["project", "create", "LED", "Lane edits"]);
-    const L = ProjectSchema.shape.lanes;
+    const sibling = await sumiJson(BoardSchema, ["board", "create", "LED", "Bugs"]);
+    const L = BoardSchema.shape.lanes;
 
-    const added = await sumiJson(L, ["project", "lane", "add", "LED", "QA / Staging"]);
+    const added = await sumiJson(L, ["board", "lane", "add", "LED-general", "QA / Staging"]);
     expect(added.at(-1)).toEqual({ id: "qa_staging", name: "QA / Staging" });
     expect(await laneIds("LED")).toBe("backlog todo in_progress in_review done qa_staging");
-    await sumi(["project", "lane", "add", "LED", "Icebox", "--position", "1"]);
+    await sumi(["board", "lane", "add", "LED-general", "Icebox", "--position", "1"]);
     expect(await laneIds("LED")).toBe("icebox backlog todo in_progress in_review done qa_staging");
 
-    const renamed = await sumiJson(L, ["project", "lane", "rename", "LED", "todo", "Ready"]);
+    const renamed = await sumiJson(L, ["board", "lane", "rename", "LED-general", "todo", "Ready"]);
     expect(renamed.find((l) => l.id === "todo")?.name).toBe("Ready");
 
-    await sumi(["project", "lane", "move", "LED", "done", "2"]);
+    await sumi(["board", "lane", "move", "LED-general", "done", "2"]);
     expect(await laneIds("LED")).toBe("icebox done backlog todo in_progress in_review qa_staging");
-    await sumi(["project", "lane", "move", "LED", "icebox", "99"]);
+    await sumi(["board", "lane", "move", "LED-general", "icebox", "99"]);
     expect(await laneIds("LED")).toBe("done backlog todo in_progress in_review qa_staging icebox");
 
-    await sumi(["project", "lane", "remove", "LED", "icebox"]);
+    await sumi(["board", "lane", "remove", "LED-general", "icebox"]);
     expect(await laneIds("LED")).toBe("done backlog todo in_progress in_review qa_staging");
-    const text = await sumi(["project", "lane", "remove", "LED", "qa_staging"]);
+    const text = await sumi(["board", "lane", "remove", "LED-general", "qa_staging"]);
     expect(text.out).toContain("backlog");
     expect(text.out).not.toContain("QA");
+    expect((await sumiJson(BoardSchema, ["board", "get", sibling.id])).lanes.map((l) => l.id).join(" ")).toBe("backlog todo in_progress in_review done");
   });
 
   it("explains why an edit is refused", async () => {
     await sumi(["project", "create", "LRF", "Refused"]);
     await sumi(["ticket", "create", "LRF", "stuck", "--status", "todo"]);
-    const removing = await sumi(["project", "lane", "remove", "LRF", "todo"]);
+    const removing = await sumi(["board", "lane", "remove", "LRF-general", "todo"]);
     expect(removing).toMatchObject({ code: 1, err: "error: Lane Todo still has 1 ticket; move them first\n" });
-    expect((await sumi(["project", "lane", "rename", "LRF", "nope", "X"])).err).toContain("has no lane nope (lanes: backlog, todo");
-    expect((await sumi(["project", "lane", "add", "NOPE", "X"])).err).toBe("error: Project NOPE not found\n");
-    expect((await sumi(["project", "lane", "move", "LRF", "todo", "0"])).code).toBe(1);
+    expect((await sumi(["board", "lane", "rename", "LRF-general", "nope", "X"])).err).toContain("has no lane nope (lanes: backlog, todo");
+    expect((await sumi(["board", "lane", "add", "NOPE", "X"])).err).toBe("error: Board NOPE not found\n");
+    expect((await sumi(["board", "lane", "move", "LRF-general", "todo", "0"])).code).toBe(1);
   });
 });
 

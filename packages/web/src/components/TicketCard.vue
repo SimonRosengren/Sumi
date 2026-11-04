@@ -4,7 +4,7 @@ import { GitBranch, GitPullRequest } from "@lucide/vue";
 import PriorityIcon from "@/components/PriorityIcon.vue";
 import UserAvatar from "@/components/UserAvatar.vue";
 
-defineProps<{ ticket: Ticket; assignee?: User | undefined }>();
+defineProps<{ ticket: Ticket; assignee?: User | undefined; boardName?: string | undefined }>();
 defineEmits<{ open: [] }>();
 
 function dragStart(e: DragEvent, key: string) {
@@ -29,6 +29,7 @@ function dragStart(e: DragEvent, key: string) {
       <UserAvatar v-if="assignee" :user="assignee" />
     </div>
     <h3 class="type-card-title mt-1">{{ ticket.title }}</h3>
+    <p v-if="boardName" class="text-muted-foreground mt-1 text-xs">{{ boardName }}</p>
     <div
       v-if="ticket.priority || ticket.links.pr || ticket.links.branch"
       class="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"

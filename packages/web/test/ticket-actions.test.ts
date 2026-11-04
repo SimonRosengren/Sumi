@@ -166,6 +166,7 @@ describe("creating tickets", () => {
 
     expect(client.createTicket).toHaveBeenCalledWith({
       projectKey: "SUMI",
+      boardId: "SUMI-general",
       title: "Fresh idea",
       description: "More detail",
       status: "todo",

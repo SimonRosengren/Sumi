@@ -31,10 +31,11 @@ async function click(el: HTMLElement | undefined) {
 }
 
 describe("view options menu", () => {
-  it("lives next to the theme toggle and starts closed", async () => {
+  it("lives in the sidebar and starts closed", async () => {
     const w = await render();
     expect(menu()).toBeNull();
-    expect(trigger(w).element.nextElementSibling?.getAttribute("aria-label")).toMatch(/theme/);
+    expect(w.get('[aria-label="Board controls"]').element.contains(trigger(w).element)).toBe(true);
+    expect(w.get("header nav").attributes("aria-label")).toBe("Boards");
     expect(statuses(w)).toHaveLength(5);
   });
 
@@ -49,23 +50,26 @@ describe("view options menu", () => {
     expect(item("Hide empty lanes")?.getAttribute("aria-checked")).toBe("false");
   });
 
-  it("hides and shows a single lane, and remembers it per project", async () => {
+  it("hides and shows a single lane, and remembers it per board", async () => {
     const w = await render();
     await open(w);
     await click(item("Backlog"));
     expect(statuses(w)).toEqual(["todo", "in_progress", "in_review", "done"]);
     expect(item("Backlog")?.getAttribute("aria-checked")).toBe("false");
-    expect(trigger(w).classes()).toContain("bg-primary/12");
-    expect(JSON.parse(localStorage.getItem("sumi.view") ?? "")).toEqual({ hideEmpty: false, hidden: { SUMI: ["backlog"] } });
+    expect(trigger(w).attributes("data-active")).toBe("true");
+    expect(JSON.parse(localStorage.getItem("sumi.view.SUMI-general") ?? "")).toEqual({ hideEmpty: false, hidden: { "SUMI-general": ["backlog"] } });
 
     // Another project is not affected.
-    await w.findAll("nav button").find((b) => b.text().includes("WEB"))?.trigger("click");
+    await w.findAll('nav[aria-label="Boards"] button').find((b) => b.text() === "SUMI General")!.trigger("click");
+    await w.findAll('nav[aria-label="Boards"] button').find((b) => b.text() === "WEB General")!.trigger("click");
     await flushPromises();
     expect(statuses(w)).toHaveLength(5);
-    await w.findAll("nav button").find((b) => b.text().includes("SUMI"))?.trigger("click");
+    await w.findAll('nav[aria-label="Boards"] button').find((b) => b.text() === "WEB General")!.trigger("click");
+    await w.findAll('nav[aria-label="Boards"] button').find((b) => b.text() === "SUMI General")!.trigger("click");
     await flushPromises();
     expect(statuses(w)).not.toContain("backlog");
 
+    await open(w);
     await click(item("Backlog"));
     expect(statuses(w)).toHaveLength(5);
   });
@@ -75,7 +79,7 @@ describe("view options menu", () => {
     await open(w);
     await click(item("Hide empty lanes"));
     expect(statuses(w)).toEqual(["backlog", "in_progress", "done"]);
-    expect(JSON.parse(localStorage.getItem("sumi.view") ?? "").hideEmpty).toBe(true);
+    expect(JSON.parse(localStorage.getItem("sumi.view.SUMI-general") ?? "").hideEmpty).toBe(true);
 
     await w.get('[aria-label="Edit lanes"]').trigger("click");
     expect(statuses(w)).toHaveLength(5);
@@ -87,7 +91,7 @@ describe("view options menu", () => {
     localStorage.setItem("sumi.view", JSON.stringify({ hideEmpty: true, hidden: { SUMI: ["done"] } }));
     const w = await render();
     expect(statuses(w)).toEqual(["backlog", "in_progress"]);
-    expect(trigger(w).classes()).toContain("bg-primary/12");
+    expect(trigger(w).attributes("data-active")).toBe("true");
   });
 
   it("offers a way back when nothing is left to show", async () => {
@@ -101,13 +105,13 @@ describe("view options menu", () => {
     await w.findAll("button").find((b) => b.text() === "Show everything" && w.element.contains(b.element))?.trigger("click");
     await flushPromises();
     expect(statuses(w)).toHaveLength(5);
-    expect(trigger(w).classes()).not.toContain("bg-primary/12");
+    expect(trigger(w).attributes("data-active")).toBe("false");
   });
 
   it("ignores hidden lanes that no longer exist", async () => {
     localStorage.setItem("sumi.view", JSON.stringify({ hideEmpty: false, hidden: { SUMI: ["deleted"] } }));
     const w = await render();
     expect(statuses(w)).toHaveLength(5);
-    expect(trigger(w).classes()).not.toContain("bg-primary/12");
+    expect(trigger(w).attributes("data-active")).toBe("false");
   });
 });

@@ -55,8 +55,9 @@ describe("projects", () => {
     const { alice } = await seed(core());
     expect((await core().projects.list()).map((p) => p.key)).toContain("SUMI");
     const log = await core().activity.list({ projectKey: "SUMI" });
-    expect(log).toHaveLength(1);
-    expect(log[0]).toMatchObject({ actorId: alice.id, action: "project.created" });
+    expect(log).toHaveLength(2);
+    expect(log).toContainEqual(expect.objectContaining({ actorId: alice.id, action: "project.created" }));
+    expect(log).toContainEqual(expect.objectContaining({ actorId: alice.id, action: "board.created" }));
   });
 
   it("rejects a duplicate key, bad key and unknown actor", async () => {
@@ -93,7 +94,7 @@ describe("deleting a project", () => {
     expect(log).toHaveLength(1);
     expect(log[0]).toMatchObject({ actorId: alice.id, action: "project.deleted", data: { name: "Gone", tickets: 1 } });
     expect(await core().tickets.get(stay.key)).not.toBeNull();
-    expect(await core().activity.list({ projectKey: "STAY" })).toHaveLength(2);
+    expect(await core().activity.list({ projectKey: "STAY" })).toHaveLength(3);
   });
 
   it("lets the key be reused with fresh ticket numbers and no old comments", async () => {

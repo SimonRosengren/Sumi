@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Moon, Origami, Sun } from "@lucide/vue";
+import { Moon, Sun } from "@lucide/vue";
 import { useData, withBase } from "vitepress";
 import { onMounted, onUnmounted, ref } from "vue";
 import { repo } from "./links";
@@ -29,7 +29,7 @@ const nav = [
   >
     <div class="mx-auto flex h-full max-w-page items-center gap-6 px-6">
       <a :href="withBase('/')" class="flex items-center gap-2 text-foreground no-underline">
-        <Origami class="size-5" :stroke-width="2.5" />
+        <span class="sumi-logo h-6 w-8 shrink-0 bg-primary" aria-hidden="true" />
         <span class="text-xl font-black tracking-wordmark uppercase">Sumi</span>
       </a>
       <nav class="hidden items-center gap-1 md:flex">
@@ -62,3 +62,9 @@ const nav = [
     </div>
   </header>
 </template>
+
+<style scoped>
+.sumi-logo {
+  mask: url("../../../../assets/brand/logo.svg") center / contain no-repeat;
+}
+</style>

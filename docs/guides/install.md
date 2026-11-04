@@ -5,7 +5,7 @@ For a team instance. For development see the README.
 ## Run it
 
 ```sh
-git clone <this repo> sumi && cd sumi
+git clone https://github.com/SimonRosengren/Sumi.git sumi && cd sumi
 docker compose up -d --build     # MongoDB + Sumi, board and API on http://localhost:3000
 ```
 

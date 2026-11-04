@@ -21,7 +21,7 @@ const dialog = () => document.body.querySelector<HTMLElement>('[data-testid="che
 const commands = () => Array.from(dialog()?.querySelectorAll("[data-command] code") ?? []).map((c) => c.textContent);
 
 describe("CLI cheat sheet", () => {
-  it("starts closed and opens from the header", async () => {
+  it("starts closed and opens from the sidebar", async () => {
     const wrapper = mount(BoardView, { props: { client: fakeClient(), me: alice }, attachTo: document.body });
     await flushPromises();
     expect(dialog()).toBeNull();
@@ -32,7 +32,7 @@ describe("CLI cheat sheet", () => {
 
   it("uses the selected project in its commands", async () => {
     await open();
-    expect(commands()).toContain("pnpm exec sumi ticket list SUMI");
+    expect(commands()).toContain("pnpm exec sumi ticket list SUMI --board SUMI-general");
     expect(commands()).toContain("pnpm exec sumi ticket move SUMI-1 in_progress");
     expect(commands()).toContain("pnpm exec sumi project list");
   });
@@ -48,7 +48,7 @@ describe("CLI cheat sheet", () => {
   it("explains how to create and delete projects and add lanes", async () => {
     await open();
     expect(commands()).toContain('pnpm exec sumi project create WEB "Website"');
-    expect(commands()).toContain('pnpm exec sumi project lane add SUMI "Blocked"');
+    expect(commands()).toContain('pnpm exec sumi board lane add SUMI-general "Blocked"');
     expect(commands()).toContain("pnpm exec sumi project delete WEB");
   });
 

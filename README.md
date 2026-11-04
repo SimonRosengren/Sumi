@@ -47,7 +47,7 @@ pnpm dev:web                 # http://localhost:5173, sign in by pasting your to
 pnpm dev:site                # http://localhost:5174
 ```
 
-On the board, drag a card to another column to move it, and click a card for its details and history. "Edit lanes" lets you add, rename, remove and reorder the columns (agents can do the same: `sumi project lane --help`). Everything the board can do, the CLI and MCP can do too.
+On the board, drag a card to another column to move it, and click a card for its details and history. "Edit lanes" lets you add, rename, remove and reorder that board's columns (agents can do the same: `sumi board lane --help`). Everything the board can do, the CLI and MCP can do too.
 
 Put the token in `.env` as `SUMI_TOKEN` (or export it), then use the CLI:
 

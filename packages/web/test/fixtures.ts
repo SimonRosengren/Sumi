@@ -1,5 +1,5 @@
 import type { Client } from "@sumi/client";
-import { DEFAULT_LANES, type Project, type Ticket, type User } from "@sumi/contract";
+import { DEFAULT_LANES, type Board, type Project, type Ticket, type User } from "@sumi/contract";
 import { vi } from "vitest";
 
 const now = new Date("2026-01-01T00:00:00Z");
@@ -11,6 +11,7 @@ export function ticket(overrides: Partial<Ticket> & Pick<Ticket, "key" | "title"
   const number = Number(overrides.key.split("-")[1]);
   return {
     projectKey: overrides.key.split("-")[0] as string,
+    boardId: `${overrides.key.split("-")[0]}-general`,
     number,
     description: "",
     status: "backlog",
@@ -22,8 +23,8 @@ export function ticket(overrides: Partial<Ticket> & Pick<Ticket, "key" | "title"
 }
 
 export const projects: Project[] = [
-  { key: "SUMI", name: "Sumi", lanes: [...DEFAULT_LANES], createdAt: now },
-  { key: "WEB", name: "Website", lanes: [...DEFAULT_LANES], createdAt: now },
+  { key: "SUMI", name: "Sumi", createdAt: now },
+  { key: "WEB", name: "Website", createdAt: now },
 ];
 
 export const tickets: Record<string, Ticket[]> = {
@@ -35,16 +36,20 @@ export const tickets: Record<string, Ticket[]> = {
   WEB: [ticket({ key: "WEB-1", title: "Landing page", status: "todo" })],
 };
 
+export const boards: Board[] = projects.map((p) => ({ id: `${p.key}-general`, projectKey: p.key, name: "General", lanes: [...DEFAULT_LANES], createdAt: now }));
+
 /** A fake API client. Only the methods the board uses are implemented. */
 export function fakeClient(overrides: Partial<Record<keyof Client, unknown>> = {}): Client {
   return {
     listProjects: vi.fn(async () => projects),
+    listBoards: vi.fn(async (projectKey: string) => boards.filter((b) => b.projectKey === projectKey)),
     listUsers: vi.fn(async () => [alice, bot]),
     setLanes: vi.fn(async (key: string, { lanes }: { lanes: { id?: string; name: string }[] }) => ({
-      ...(projects.find((p) => p.key === key) as Project),
+      ...(boards.find((b) => b.id === key) as Board),
       lanes: lanes.map((l) => ({ id: l.id ?? l.name.toLowerCase().replaceAll(" ", "_"), name: l.name })),
     })),
-    listTickets: vi.fn(async ({ projectKey }: { projectKey: string }) => tickets[projectKey] ?? []),
+    listTickets: vi.fn(async ({ projectKey, boardId }: { projectKey: string; boardId?: string }) =>
+      (tickets[projectKey] ?? []).filter((t) => !boardId || t.boardId === boardId)),
     moveTicket: vi.fn(async (key: string, { status }: { status: string }) => {
       const t = Object.values(tickets).flat().find((x) => x.key === key);
       return { ...t, status, updatedAt: new Date() };
@@ -53,7 +58,7 @@ export function fakeClient(overrides: Partial<Record<keyof Client, unknown>> = {
       const t = Object.values(tickets).flat().find((x) => x.key === key);
       return { ...t, ...input, updatedAt: new Date() };
     }),
-    createTicket: vi.fn(async (input: { projectKey: string; title: string; description?: string; status?: string }) =>
+    createTicket: vi.fn(async (input: { projectKey: string; boardId?: string; title: string; description?: string; status?: string }) =>
       ticket({ key: `${input.projectKey}-99`, ...input, title: input.title, status: (input.status ?? "backlog") as Ticket["status"] }),
     ),
     listActivity: vi.fn(async () => []),
