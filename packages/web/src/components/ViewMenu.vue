@@ -20,7 +20,7 @@ defineEmits<{
 
 // One row is one checkbox: the whole line toggles it, and screen readers read the text as its name.
 const row =
-  "group hover:bg-accent active:bg-accent/70 focus-visible:ring-ring/40 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-field outline-none focus-visible:ring-2";
+  "group hover:bg-accent active:bg-accent-active focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-field outline-none focus-visible:ring-2";
 const box =
   "border-input bg-card group-data-[state=checked]:border-primary group-data-[state=checked]:bg-primary group-data-[state=checked]:text-primary-foreground flex size-4 shrink-0 items-center justify-center rounded-sm border";
 </script>

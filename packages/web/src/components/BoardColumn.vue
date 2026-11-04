@@ -123,14 +123,14 @@ function commit() {
         :maxlength="LANE_NAME_MAX_LENGTH"
         aria-label="Lane name"
         autocomplete="off"
-        class="border-input bg-card focus-visible:border-ring focus-visible:ring-ring/40 h-6 min-w-0 flex-1 rounded-md border px-2 type-column outline-none focus-visible:ring-2"
+        class="border-input bg-card focus-visible:border-ring focus-visible:ring-ring h-6 min-w-0 flex-1 rounded-md border px-2 type-column outline-none focus-visible:ring-2"
         @keydown.enter.prevent="commit"
         @keydown.esc.prevent="emit('cancelRename')"
         @blur="commit"
       />
       <template v-else>
         <h2 class="type-column min-w-0 truncate">{{ lane.name }}</h2>
-        <span class="text-muted-foreground font-mono text-xs">{{ tickets.length }}</span>
+        <span class="bg-secondary text-secondary-foreground inline-flex h-6 min-w-6 items-center justify-center rounded-md px-1 font-mono text-xs">{{ tickets.length }}</span>
         <template v-if="editing">
           <Button variant="ghost" size="icon-xs" :aria-label="`Rename ${lane.name}`" @click="emit('startRename')">
             <Pencil class="size-3.5" aria-hidden="true" />
@@ -150,7 +150,7 @@ function commit() {
       </template>
     </header>
     <div
-      class="bg-muted/50 flex min-h-24 flex-1 flex-col gap-2 no-scrollbar overflow-y-auto rounded-lg border border-transparent p-2 transition-colors"
+      class="bg-muted flex min-h-24 flex-1 flex-col gap-2 no-scrollbar overflow-y-auto rounded-lg border border-border/60 p-2 transition-colors"
       :class="{ 'bg-primary/12 border-primary/40': over }"
       data-dropzone
       @dragover="dragOverTickets"

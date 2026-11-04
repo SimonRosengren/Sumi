@@ -146,31 +146,24 @@ const TEXT: [string, string[]][] = [
   ["--primary-ink", SURFACES],
   ["--destructive", SURFACES],
   ["--priority-medium", SURFACES],
-  ["--primary-foreground", ["--primary"]],
-  ["--accent-foreground", ["--accent"]],
-  ["--muted-foreground", ["--accent"]], // ghost buttons at rest sit on the surface; hover swaps text to foreground
+  ["--primary-foreground", ["--primary", "--primary-hover", "--primary-active"]],
+  ["--accent-foreground", ["--accent", "--accent-active"]],
+  ["--muted-foreground", ["--accent", "--accent-active"]],
+  ["--secondary-foreground", ["--secondary"]],
 ];
 
 // UI (icons, indicators): 3:1.
 const UI: [string, string[]][] = [
+  ["--status-backlog", SURFACES],
   ["--status-todo", ["--card", "--muted"]],
   ["--status-in-progress", SURFACES],
   ["--status-in-review", SURFACES],
   ["--status-done", SURFACES],
   ["--priority-medium", SURFACES],
   ["--destructive", SURFACES],
+  ["--ring", [...SURFACES, "--accent", "--accent-active"]],
+  ["--input", ["--card", "--popover", "--background"]],
 ];
-
-// Known gaps, kept visible instead of hidden (ADR 0031). Remove an entry when it is fixed;
-// the test below fails if an excused pairing starts to pass, so this list cannot go stale.
-const EXCUSED: Record<string, string> = {
-  "light --ring on --background": "focus ring uses the base orange, 2.7:1; the ring also has a border and a 30% halo",
-  "light --ring on --card": "see above",
-  "light --ring on --muted": "see above",
-  "light --input on --card": "control borders are hairlines; the field fill and label carry the affordance",
-  "dark --input on --card": "see above",
-  "light --status-backlog on --card": "backlog is deliberately faint (dashed circle) and always next to its lane name",
-};
 
 const pairs = (list: [string, string[]][], min: number) =>
   Object.keys(themes).flatMap((theme) =>
@@ -184,10 +177,5 @@ describe("contrast", () => {
 
   it.each(pairs(UI, 3))("ui $theme $fg on $bg is at least $min:1", ({ theme, fg, bg, min }) => {
     expect(contrast(themes[theme][fg]!, themes[theme][bg]!)).toBeGreaterThanOrEqual(min);
-  });
-
-  it.each(Object.entries(EXCUSED))("excused: %s (%s)", (key) => {
-    const [theme, fg, , bg] = key.split(" ") as [keyof typeof themes, string, string, string];
-    expect(contrast(themes[theme][fg]!, themes[theme][bg]!)).toBeLessThan(3);
   });
 });

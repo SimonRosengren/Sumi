@@ -32,7 +32,8 @@
     "dev:api": "pnpm --filter @sumi/api dev",
     "bootstrap": "pnpm --filter @sumi/api bootstrap",
     "dev:web": "pnpm --filter @sumi/web dev",
-    "dev": "pnpm dev:db && concurrently -n api,web -c yellow,green --kill-others-on-fail \"pnpm dev:api\" \"pnpm dev:web\""
+    "dev:site": "pnpm --filter @sumi/site dev --port 5174",
+    "dev": "pnpm dev:db && concurrently -n api,web,site -c yellow,green,cyan --kill-others-on-fail \"pnpm dev:api\" \"pnpm dev:web\" \"pnpm dev:site\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

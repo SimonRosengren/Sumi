@@ -86,8 +86,8 @@
   --vp-c-brand-3: var(--primary);
   --vp-c-brand-soft: color-mix(in srgb, var(--primary) 12%, transparent);
   --vp-button-brand-bg: var(--primary);
-  --vp-button-brand-hover-bg: color-mix(in srgb, var(--primary) 90%, transparent);
-  --vp-button-brand-active-bg: color-mix(in srgb, var(--primary) 80%, transparent);
+  --vp-button-brand-hover-bg: var(--primary-hover);
+  --vp-button-brand-active-bg: var(--primary-active);
   --vp-button-brand-text: var(--primary-foreground);
   --vp-button-brand-hover-text: var(--primary-foreground);
   --vp-button-brand-active-text: var(--primary-foreground);

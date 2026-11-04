@@ -24,10 +24,11 @@ TypeScript everywhere, pnpm monorepo, MongoDB, Hono HTTP API, Vue 3 (Vite) web, 
 
 ```sh
 pnpm install
-pnpm dev          # db + api + web in one terminal (needs a token, see below)
+pnpm dev          # db + api + web + site in one terminal (needs a token, see below)
 pnpm dev:db       # local MongoDB (replica set) via docker compose
 pnpm dev:api      # API on :3000 (run `pnpm bootstrap <name>` once for a token)
 pnpm dev:web      # Kanban board on :5173 (proxies /api to the API)
+pnpm dev:site     # website on :5174
 pnpm exec sumi --help   # the CLI (needs SUMI_TOKEN, see .env.example)
 pnpm exec sumi-mcp      # the MCP server on stdio (same env)
 pnpm lint

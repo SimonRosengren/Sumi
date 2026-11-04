@@ -189,7 +189,7 @@ onUnmounted(() => stopWatching());
           <button
             v-if="editingLanes"
             type="button"
-            class="border-input text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/40 active:bg-accent/70 mt-8 flex w-24 shrink-0 cursor-pointer items-start justify-center rounded-lg border border-dashed pt-3 text-field font-medium transition-colors outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
+            class="border-input text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:border-ring focus-visible:ring-ring active:bg-accent-active mt-8 flex w-24 shrink-0 cursor-pointer items-start justify-center rounded-lg border border-dashed pt-3 text-field font-medium transition-colors outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
             :disabled="board.lanes.value.length >= MAX_LANES"
             aria-label="Add lane"
             @click="addLane"

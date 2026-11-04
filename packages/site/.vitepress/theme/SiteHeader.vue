@@ -46,7 +46,7 @@ const nav = [
         <button
           type="button"
           aria-label="Toggle theme"
-          class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+          class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:bg-accent-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           @click="isDark = !isDark"
         >
           <Sun v-if="isDark" class="size-4" />
@@ -54,7 +54,7 @@ const nav = [
         </button>
         <a
           :href="withBase('/guides/install')"
-          class="inline-flex h-8 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground no-underline transition-colors hover:bg-primary/90 active:bg-primary/80 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+          class="inline-flex h-8 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground no-underline transition-colors hover:bg-primary-hover active:bg-primary-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Get started
         </a>

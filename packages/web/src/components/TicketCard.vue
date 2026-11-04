@@ -16,7 +16,7 @@ function dragStart(e: DragEvent, key: string) {
 
 <template>
   <article
-    class="bg-card hover:border-foreground/25 focus-visible:border-ring focus-visible:ring-ring/40 cursor-pointer rounded-md border p-3 transition-colors outline-none focus-visible:ring-2 active:cursor-grabbing"
+    class="bg-card hover:border-muted-foreground focus-visible:border-ring focus-visible:ring-ring cursor-pointer rounded-md border p-3 transition-colors outline-none focus-visible:ring-2 active:cursor-grabbing"
     :data-key="ticket.key"
     tabindex="0"
     draggable="true"

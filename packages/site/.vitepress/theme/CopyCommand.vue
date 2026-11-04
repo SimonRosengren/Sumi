@@ -16,7 +16,7 @@ async function copy() {
 <template>
   <button
     type="button"
-    class="inline-flex h-12 items-center gap-3 rounded-full border border-input bg-background px-6 text-base font-medium text-foreground transition-colors hover:bg-accent active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+    class="inline-flex h-12 items-center gap-3 rounded-full border border-input bg-background px-6 text-base font-medium text-foreground transition-colors hover:bg-accent active:bg-accent-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     @click="copy"
   >
     Onboard your agent

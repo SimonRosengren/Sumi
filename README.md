@@ -40,10 +40,11 @@ pnpm bootstrap <your-name>   # creates the first user and prints an API token (s
 pnpm dev:api                 # API on http://localhost:3000
 ```
 
-Or start everything (MongoDB, API and board) with one command: `pnpm dev`. Separately, to open the board:
+Or start everything (MongoDB, API, board and website) with one command: `pnpm dev`. Separately, to open the board or website:
 
 ```sh
 pnpm dev:web                 # http://localhost:5173, sign in by pasting your token
+pnpm dev:site                # http://localhost:5174
 ```
 
 On the board, drag a card to another column to move it, and click a card for its details and history. "Edit lanes" lets you add, rename, remove and reorder the columns (agents can do the same: `sumi project lane --help`). Everything the board can do, the CLI and MCP can do too.

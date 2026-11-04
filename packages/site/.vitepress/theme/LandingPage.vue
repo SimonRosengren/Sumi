@@ -9,9 +9,9 @@ import TerminalMock from "./TerminalMock.vue";
 import { repo } from "./links";
 
 const primary =
-  "inline-flex h-12 items-center justify-center rounded-full bg-primary px-6 text-base font-medium text-primary-foreground no-underline transition-colors hover:bg-primary/90 active:bg-primary/80 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none";
+  "inline-flex h-12 items-center justify-center rounded-full bg-primary px-6 text-base font-medium text-primary-foreground no-underline transition-colors hover:bg-primary-hover active:bg-primary-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 const secondary =
-  "inline-flex h-12 items-center justify-center rounded-full border border-input bg-background px-6 text-base font-medium text-foreground no-underline transition-colors hover:bg-accent active:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none";
+  "inline-flex h-12 items-center justify-center rounded-full border border-input bg-background px-6 text-base font-medium text-foreground no-underline transition-colors hover:bg-accent active:bg-accent-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
 // `side` is where the text block sits over the visual; the headline starts on the other side (Vercel's rhythm).
 const sections = [
