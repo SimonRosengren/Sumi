@@ -75,6 +75,20 @@ describe("ticket detail", () => {
     expect(client.listActivity).toHaveBeenCalledWith({ ticketKey: "SUMI-2" });
   });
 
+  it("shows time in the named lane on the card and ticket detail", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-04T00:00:00Z"));
+    try {
+      await render();
+      expect(wrapper!.get('[data-key="SUMI-2"]').text()).toContain("3d in In progress");
+      await open("SUMI-2");
+      expect(detail()?.textContent).toContain("3d in In progress");
+      expect(detail()?.querySelector('time[datetime="2026-01-01T00:00:00.000Z"]')).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("lists the ticket's history in readable form", async () => {
     const listActivity = vi.fn(async () => [
       { id: "a2", actorId: "u2", action: "ticket.moved", ticketKey: "SUMI-2", data: { from: "todo", to: "in_progress" }, createdAt: new Date("2026-01-02T10:00:00Z") },

@@ -17,13 +17,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
-/** Ticket fields an agent needs, without timestamps or empty values. `full` adds the description. */
+/** Ticket fields an agent needs, including lane entry time. `full` adds the description. */
 function brief(t: Ticket, full: boolean) {
   return {
     key: t.key,
     boardId: t.boardId,
     title: t.title,
     status: t.status,
+    statusSince: t.statusSince,
     ...(t.priority && { priority: t.priority }),
     ...(t.assigneeId && { assigneeId: t.assigneeId }),
     ...(Object.keys(t.links).length > 0 && { links: t.links }),
@@ -170,7 +171,7 @@ export function createServer(client: Client): McpServer {
   server.registerTool(
     "list_tickets",
     {
-      description: "List tickets in a project, oldest first, without descriptions. Use get_ticket for details.",
+      description: "List tickets in a project, oldest first, including statusSince (current lane entry time), without descriptions. Use get_ticket for details.",
       inputSchema: listShape,
     },
     tool(async ({ projectKey, ...filters }: Args<typeof listShape>) =>
@@ -180,7 +181,7 @@ export function createServer(client: Client): McpServer {
 
   server.registerTool(
     "get_ticket",
-    { description: "Get one ticket including its description and comments (oldest first).", inputSchema: { key: ticketKey } },
+    { description: "Get one ticket including statusSince (current lane entry time), its description and comments (oldest first).", inputSchema: { key: ticketKey } },
     tool(async ({ key }: { key: string }) => {
       const [ticket, comments] = await Promise.all([client.getTicket(key), client.listComments(key)]);
       return {

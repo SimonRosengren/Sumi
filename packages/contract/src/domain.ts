@@ -84,6 +84,8 @@ export const TicketSchema = z.object({
   title: z.string(),
   description: z.string(),
   status: StatusSchema,
+  /** When the ticket entered its current board lane. Unchanged by edits or same-lane moves. */
+  statusSince: z.coerce.date(),
   assigneeId: z.string().optional(),
   priority: PrioritySchema.optional(),
   links: TicketLinksSchema,

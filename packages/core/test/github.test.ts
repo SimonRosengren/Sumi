@@ -50,6 +50,8 @@ describe("syncPullRequest", () => {
       status: "in_review",
       links: { repo: "acme/app", branch: `${t.key.toLowerCase()}-fix`, pr: 11 },
     });
+    expect(moved?.statusSince).toEqual(moved?.updatedAt);
+    expect((await core().tickets.get(t.key))?.statusSince).toEqual(moved?.statusSince);
 
     const user = await core().users.get(GITHUB_USER_ID);
     expect(user).toMatchObject({ kind: "agent", name: "GitHub" });
@@ -96,8 +98,10 @@ describe("syncPullRequest", () => {
     const t = await make({ title: "Twice" });
     await core().github.syncPullRequest(pr({ branch: t.key, number: 30 }));
     const before = (await core().activity.list({ ticketKey: t.key })).length;
+    const statusSince = (await core().tickets.get(t.key))?.statusSince;
     await core().github.syncPullRequest(pr({ branch: t.key, number: 30 }));
     expect((await core().activity.list({ ticketKey: t.key })).length).toBe(before);
+    expect((await core().tickets.get(t.key))?.statusSince).toEqual(statusSince);
   });
 
   it("moves several tickets named by one PR", async () => {

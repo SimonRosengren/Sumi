@@ -66,6 +66,22 @@ export const MIGRATIONS: readonly Migration[] = [
       await db.collection("projects").updateMany({}, { $unset: { lanes: "" } });
     },
   },
+  {
+    id: "0004-ticket-status-since",
+    async up(db) {
+      const tickets = db.collection<{ _id: string; createdAt: Date; statusSince?: Date }>("tickets");
+      for await (const ticket of tickets.find({ statusSince: { $exists: false } })) {
+        const latest = await db.collection("activity").findOne({
+          ticketKey: ticket._id,
+          action: { $in: ["ticket.created", "ticket.moved", "ticket.claimed", "ticket.transferred"] },
+        }, { sort: { createdAt: -1 } });
+        await tickets.updateOne(
+          { _id: ticket._id, statusSince: { $exists: false } },
+          { $set: { statusSince: latest?.createdAt ?? ticket.createdAt } },
+        );
+      }
+    },
+  },
 ];
 
 interface MigrationDoc {

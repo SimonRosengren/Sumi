@@ -48,7 +48,7 @@ describe("boards", () => {
     const before = await core().tickets.create(actor, { projectKey: "TRANSFER", boardId: general.id, title: "Keep", status: "in_review", priority: "high", links: { repo: "acme/sumi", pr: 7 } });
     const comment = await core().comments.add(actor, before.key, { body: "History" });
     const after = await core().tickets.transfer(actor, before.key, { boardId: bugs.id });
-    expect(after).toEqual({ ...before, boardId: bugs.id, updatedAt: expect.any(Date) });
+    expect(after).toEqual({ ...before, boardId: bugs.id, statusSince: after.updatedAt, updatedAt: expect.any(Date) });
     expect(await core().comments.list(before.key)).toEqual([comment]);
     const history = await core().activity.list({ ticketKey: before.key });
     expect(history).toContainEqual(expect.objectContaining({ actorId: actor, action: "ticket.transferred", data: { from: general.id, to: bugs.id, fromStatus: "in_review", toStatus: "in_review" } }));

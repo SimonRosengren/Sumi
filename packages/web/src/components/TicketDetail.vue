@@ -5,6 +5,7 @@ import { ChevronDown, GitBranch, GitPullRequest, Pencil, X } from "@lucide/vue";
 import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from "reka-ui";
 import { nextTick, ref, watch } from "vue";
 import StatusIcon from "@/components/StatusIcon.vue";
+import LaneAge from "@/components/LaneAge.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { describeActivity } from "@/lib/board";
@@ -160,6 +161,9 @@ function setPriority(value: string) {
             </select>
             <ChevronDown :class="CHEVRON" aria-hidden="true" />
           </dd>
+
+          <dt class="text-muted-foreground">Time in lane</dt>
+          <dd><LaneAge :since="ticket.statusSince" :lane="lanes.find((l) => l.id === ticket?.status)?.name ?? ticket.status" /></dd>
 
           <dt class="text-muted-foreground"><label for="detail-assignee">Assignee</label></dt>
           <dd class="relative">

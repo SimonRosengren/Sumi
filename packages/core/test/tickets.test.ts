@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { User } from "@sumi/contract";
 import { NotFoundError, ValidationError } from "../src";
 import { seed, useCore } from "./helpers";
@@ -200,6 +200,59 @@ describe("claimNext", () => {
     const keys = results.filter((t) => t !== null).map((t) => t.key);
     expect(keys).toHaveLength(3);
     expect(new Set(keys).size).toBe(3);
+  });
+});
+
+describe("statusSince", () => {
+  it("tracks lane entry across creation, moves, claims and transfers, preserving time for other changes", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const start = new Date("2026-01-01T00:00:00Z");
+      const movedAt = new Date("2026-01-02T00:00:00Z");
+      const claimedAt = new Date("2026-01-03T00:00:00Z");
+      const transferredAt = new Date("2026-01-04T00:00:00Z");
+      vi.setSystemTime(start);
+      await core().projects.create(alice.id, { key: "AGE", name: "Age" });
+      const ticket = await core().tickets.create(alice.id, { projectKey: "AGE", title: "Track me" });
+      expect(ticket.statusSince).toEqual(ticket.createdAt);
+
+      vi.setSystemTime(movedAt);
+      const moved = await core().tickets.move(alice.id, ticket.key, { status: "todo" });
+      expect(moved.statusSince).toEqual(movedAt);
+      expect(await core().tickets.get(ticket.key)).toEqual(moved);
+      expect(await core().tickets.list({ projectKey: "AGE" })).toEqual([moved]);
+
+      vi.setSystemTime(claimedAt);
+      const edited = await core().tickets.update(alice.id, ticket.key, { title: "Edited", assigneeId: bot.id, priority: "high" });
+      await core().comments.add(alice.id, ticket.key, { body: "No reset" });
+      const board = (await core().boards.list("AGE"))[0]!;
+      await core().boards.setLanes(alice.id, board.id, { lanes: board.lanes.map((l) => ({ ...l, name: `${l.name}!` })) });
+      expect(edited.statusSince).toEqual(movedAt);
+      const same = await core().tickets.move(alice.id, ticket.key, { status: "todo" });
+      expect(same).toEqual(edited);
+      expect((await core().activity.list({ ticketKey: ticket.key })).filter((e) => e.action === "ticket.moved")).toHaveLength(1);
+
+      const claimed = await core().tickets.claimNext(bot.id, { projectKey: "AGE" });
+      expect(claimed?.statusSince).toEqual(claimedAt);
+      expect(await core().tickets.get(ticket.key)).toEqual(claimed);
+
+      vi.setSystemTime(transferredAt);
+      const other = await core().boards.create(alice.id, { projectKey: "AGE", name: "Other" });
+      const transferred = await core().tickets.transfer(alice.id, ticket.key, { boardId: other.id });
+      expect(transferred.status).toBe("in_progress");
+      expect(transferred.statusSince).toEqual(transferredAt);
+      vi.setSystemTime(new Date("2026-01-05T00:00:00Z"));
+      expect(await core().tickets.transfer(alice.id, ticket.key, { boardId: other.id })).toEqual(transferred);
+
+      const custom = await core().boards.create(alice.id, { projectKey: "AGE", name: "Custom" });
+      const customLanes = await core().boards.setLanes(alice.id, custom.id, { lanes: [{ name: "Inbox" }] });
+      const fallback = await core().tickets.transfer(alice.id, ticket.key, { boardId: custom.id });
+      expect(fallback.status).toBe(customLanes.lanes[0]?.id);
+      expect(fallback.statusSince).toEqual(new Date());
+      expect(await core().tickets.get(ticket.key)).toEqual(fallback);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

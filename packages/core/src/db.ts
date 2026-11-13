@@ -44,6 +44,7 @@ export interface TicketDoc {
   title: string;
   description: string;
   status: Status;
+  statusSince: Date;
   assigneeId?: string;
   priority?: Priority;
   links: TicketLinks;

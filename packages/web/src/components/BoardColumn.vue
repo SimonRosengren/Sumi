@@ -162,6 +162,7 @@ function commit() {
         v-for="t in tickets"
         :key="t.key"
         :ticket="t"
+        :lane-name="lane.name"
         :board-name="boardNames?.get(t.boardId)"
         :assignee="t.assigneeId ? usersById.get(t.assigneeId) : undefined"
         @open="emit('open', t.key)"

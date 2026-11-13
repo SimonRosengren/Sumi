@@ -20,6 +20,8 @@ A board starts with five lanes: `backlog -> todo -> in_progress -> in_review -> 
 
 Any lane can move to any other (it is a Kanban board). Moving a ticket to its current lane is a no-op and writes no activity. A lane with tickets in it cannot be removed. Claiming and the GitHub webhook refer to the lanes `todo`, `in_progress`, `in_review` and `done` by id, so renaming them is safe but deleting them disables that behaviour.
 
+Tickets expose `statusSince`: entry time into the current board lane ([ADR 0042](adr/0042-ticket-lane-entry-time.md)). Set at creation; reset by moves, claims and transfers to another board (even with the same status id). Edits, comments, lane renames and same-lane moves preserve it. Transferring to the current board is a no-op. API, CLI and MCP return the timestamp; cards and ticket details show elapsed time.
+
 ## Invariants
 
 - Ticket keys are unique per project and never reused.

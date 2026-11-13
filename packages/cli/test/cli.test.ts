@@ -177,15 +177,18 @@ describe("projects and tickets", () => {
 
     const got = await sumiJson(TicketSchema, ["ticket", "get", "CLI-1"]);
     expect(got).toEqual(t1);
+    expect(got.statusSince).toEqual(got.createdAt);
     const detail = (await sumi(["ticket", "get", "CLI-1"])).out;
     expect(detail).toContain("CLI-1  First ticket");
     expect(detail).toContain("pr:       #7");
+    expect(detail).toContain(`since:    ${t1.statusSince.toISOString()}`);
     expect(detail).toContain("Some **markdown**");
 
     const list = (await sumi(["ticket", "list", "CLI"])).out.trimEnd().split("\n");
+    const t2 = await sumiJson(TicketSchema, ["ticket", "get", "CLI-2"]);
     expect(list).toEqual([
-      "CLI-1  todo         high    First ticket",
-      "CLI-2  backlog      -       Second ticket",
+      `CLI-1  todo         high    First ticket  (since ${t1.statusSince.toISOString()})`,
+      `CLI-2  backlog      -       Second ticket  (since ${t2.statusSince.toISOString()})`,
     ]);
     const todos = await sumiJson(z.array(TicketSchema), ["ticket", "list", "CLI", "--status", "todo"]);
     expect(todos.map((t) => t.key)).toEqual(["CLI-1"]);

@@ -1,7 +1,7 @@
 import type { ActivityEntry, Board, Comment, Lane, Project, Ticket, TokenInfo, User } from "@sumi/contract";
 
 export function formatTicketLine(t: Ticket): string {
-  return `${t.key}  ${t.status.padEnd(11)}  ${(t.priority ?? "-").padEnd(6)}  ${t.title}`;
+  return `${t.key}  ${t.status.padEnd(11)}  ${(t.priority ?? "-").padEnd(6)}  ${t.title}  (since ${t.statusSince.toISOString()})`;
 }
 
 export function formatTicket(t: Ticket): string {
@@ -9,6 +9,7 @@ export function formatTicket(t: Ticket): string {
     `${t.key}  ${t.title}`,
     `board:    ${t.boardId}`,
     `status:   ${t.status}`,
+    `since:    ${t.statusSince.toISOString()}`,
     `priority: ${t.priority ?? "-"}`,
     `assignee: ${t.assigneeId ?? "-"}`,
   ];

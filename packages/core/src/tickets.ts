@@ -73,6 +73,7 @@ export function createTicketService({ cols, tx }: Ctx) {
           title: data.title,
           description: data.description,
           status,
+          statusSince: now,
           ...(data.assigneeId !== undefined && { assigneeId: data.assigneeId }),
           ...(data.priority !== undefined && { priority: data.priority }),
           links: data.links,
@@ -123,12 +124,12 @@ export function createTicketService({ cols, tx }: Ctx) {
         const status = board.lanes.some((l) => l.id === before.status) ? before.status : board.lanes[0]?.id;
         if (!status) throw new ConflictError(`Board ${boardId} has no lanes`);
         const updatedAt = new Date();
-        await cols.tickets.updateOne({ _id: key }, { $set: { boardId, status, updatedAt } }, { session });
+        await cols.tickets.updateOne({ _id: key }, { $set: { boardId, status, statusSince: updatedAt, updatedAt } }, { session });
         await recordActivity(cols, session, {
           actorId, action: "ticket.transferred", projectKey: before.projectKey, ticketKey: key,
           data: { from: before.boardId, to: boardId, fromStatus: before.status, toStatus: status },
         });
-        return toTicket({ ...before, boardId, status, updatedAt });
+        return toTicket({ ...before, boardId, status, statusSince: updatedAt, updatedAt });
       });
     },
 
@@ -183,9 +184,10 @@ export function createTicketService({ cols, tx }: Ctx) {
         if (!ticket) throw notFound(key);
         await lockProject(cols, ticket.projectKey, session);
         assertLane(await assertBoard(cols, ticket.projectKey, ticket.boardId, session), status);
+        const now = new Date();
         const before = await cols.tickets.findOneAndUpdate(
           { _id: key, status: { $ne: status } },
-          { $set: { status, updatedAt: new Date() } },
+          { $set: { status, statusSince: now, updatedAt: now } },
           { returnDocument: "before", session },
         );
         if (!before) {
@@ -193,7 +195,7 @@ export function createTicketService({ cols, tx }: Ctx) {
           if (!current) throw notFound(key);
           return toTicket(current);
         }
-        const after: TicketDoc = { ...before, status, updatedAt: new Date() };
+        const after: TicketDoc = { ...before, status, statusSince: now, updatedAt: now };
         await recordActivity(cols, session, {
           actorId,
           action: "ticket.moved",
@@ -223,6 +225,7 @@ export function createTicketService({ cols, tx }: Ctx) {
         if (boardId !== undefined && eligible.length === 0) {
           throw new ConflictError(`Board ${boardId} needs todo and in_progress lanes to claim tickets`);
         }
+        const now = new Date();
         const doc = await cols.tickets.findOneAndUpdate(
           {
             projectKey,
@@ -230,7 +233,7 @@ export function createTicketService({ cols, tx }: Ctx) {
             status: CLAIM_FROM,
             $or: [{ assigneeId: { $exists: false } }, { assigneeId: actorId }],
           },
-          { $set: { status: CLAIM_TO, assigneeId: actorId, updatedAt: new Date() } },
+          { $set: { status: CLAIM_TO, assigneeId: actorId, statusSince: now, updatedAt: now } },
           { sort: { number: 1 }, returnDocument: "after", session },
         );
         if (!doc) return null;

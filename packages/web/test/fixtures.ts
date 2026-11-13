@@ -15,6 +15,7 @@ export function ticket(overrides: Partial<Ticket> & Pick<Ticket, "key" | "title"
     number,
     description: "",
     status: "backlog",
+    statusSince: now,
     links: {},
     createdAt: now,
     updatedAt: now,
@@ -52,7 +53,7 @@ export function fakeClient(overrides: Partial<Record<keyof Client, unknown>> = {
       (tickets[projectKey] ?? []).filter((t) => !boardId || t.boardId === boardId)),
     moveTicket: vi.fn(async (key: string, { status }: { status: string }) => {
       const t = Object.values(tickets).flat().find((x) => x.key === key);
-      return { ...t, status, updatedAt: new Date() };
+      return { ...t, status, statusSince: t?.status === status ? t.statusSince : new Date(), updatedAt: new Date() };
     }),
     updateTicket: vi.fn(async (key: string, input: object) => {
       const t = Object.values(tickets).flat().find((x) => x.key === key);

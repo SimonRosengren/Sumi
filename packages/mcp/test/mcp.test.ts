@@ -67,16 +67,18 @@ describe("tools", () => {
       boardId: "MCPB-general",
       title: "First",
       status: "backlog",
+      statusSince: expect.any(String),
       priority: "high",
       links: { repo: "acme/sumi" },
       description: "Acceptance: it works",
     });
 
     expect((await call(mcp, "get_ticket", { key: "MCPB-1" })).data).toEqual(created.data);
+    expect(Number.isNaN(Date.parse(created.data.statusSince))).toBe(false);
 
     const listed = await call(mcp, "list_tickets", { projectKey: "MCPB" });
     expect(listed.data).toEqual([
-      { key: "MCPB-1", boardId: "MCPB-general", title: "First", status: "backlog", priority: "high", links: { repo: "acme/sumi" } },
+      { key: "MCPB-1", boardId: "MCPB-general", title: "First", status: "backlog", statusSince: created.data.statusSince, priority: "high", links: { repo: "acme/sumi" } },
     ]);
     expect((await call(mcp, "list_tickets", { projectKey: "MCPB", status: "done" })).data).toEqual([]);
 

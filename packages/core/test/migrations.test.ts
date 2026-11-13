@@ -91,6 +91,38 @@ describe("runMigrations", () => {
 });
 
 describe("MIGRATIONS", () => {
+  it("backfills lane entry from history, ignores edits/comments, and preserves values on retries", async () => {
+    const d = freshDb();
+    const createdAt = new Date("2026-01-01T00:00:00Z");
+    const enteredAt = new Date("2026-01-02T00:00:00Z");
+    const editedAt = new Date("2026-01-03T00:00:00Z");
+    const tickets = d.collection<{ _id: string; createdAt: Date; statusSince?: Date }>("tickets");
+    const actions = ["ticket.created", "ticket.moved", "ticket.claimed", "ticket.transferred"];
+    for (const [i, action] of actions.entries()) {
+      const key = `SUMI-${i + 1}`;
+      await tickets.insertOne({ _id: key, createdAt });
+      await d.collection("activity").insertMany([
+        { ticketKey: key, action: "ticket.created", createdAt },
+        { ticketKey: key, action, createdAt: enteredAt },
+        { ticketKey: key, action: "ticket.updated", createdAt: editedAt },
+        { ticketKey: key, action: "ticket.commented", createdAt: editedAt },
+      ]);
+    }
+    await tickets.insertMany([
+      { _id: "SUMI-5", createdAt },
+      { _id: "SUMI-6", createdAt, statusSince: editedAt },
+    ]);
+    const history = await d.collection("activity").find().toArray();
+    const migration = MIGRATIONS.find((m) => m.id === "0004-ticket-status-since")!;
+    await Promise.all([migration.up(d), migration.up(d)]);
+    await migration.up(d);
+    const docs = await tickets.find().sort({ _id: 1 }).toArray();
+    expect(docs.map((t) => t.statusSince)).toEqual([
+      enteredAt, enteredAt, enteredAt, enteredAt, createdAt, editedAt,
+    ]);
+    expect(await d.collection("activity").find().toArray()).toEqual(history);
+  });
+
   it("copies project lanes to every board, preserves existing board lanes and is retry-safe", async () => {
     const d = freshDb();
     await runMigrations(d, MIGRATIONS.slice(0, 2));
@@ -121,8 +153,8 @@ describe("MIGRATIONS", () => {
     expect(await d.collection("projects").countDocuments({ lanes: { $exists: true } })).toBe(0);
     expect(await d.collection("tickets").find().toArray()).toEqual(ticketsBefore);
     expect(await d.collection("activity").find().toArray()).toEqual(historyBefore);
-    expect(await runMigrations(d)).toEqual([migration.id]);
-    expect(await runMigrations(d)).toEqual([]);
+    expect(await runMigrations(d, MIGRATIONS.slice(0, 3))).toEqual([migration.id]);
+    expect(await runMigrations(d, MIGRATIONS.slice(0, 3))).toEqual([]);
   });
 
   it("backfills General boards without changing ticket keys, workflows, history or existing membership", async () => {
